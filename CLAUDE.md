@@ -11,7 +11,7 @@ Wixbury is a persistent, autonomous city simulation. It runs 24/7 with no player
 Visitors observe via a read-only website. Citizens make decisions, form relationships, age, and
 die through emergent behaviour — nothing is scripted.
 
-The full founding design document is in `/docs/wixbury-founding-design.md`.
+The full founding design document is in `Docs/wixbury-founding-design.md`.
 Read it before working on anything related to citizens, events, time, or districts.
 
 ---
@@ -25,9 +25,9 @@ Read it before working on anything related to citizens, events, time, or distric
 │   ├── db/                # Shared database schema, migrations, Prisma client
 │   ├── web/               # Next.js public website (read-only viewer)
 │   └── shared/            # Shared TypeScript types used across packages
-├── docs/
+├── Docs/
 │   ├── wixbury-founding-design.md   # Single source of truth for all sim constants
-│   └── build-phases.md              # The five development phases
+│   └── city-sim-build-phases.md     # The five development phases
 ├── CLAUDE.md              # This file
 └── package.json           # Root workspace config
 ```
@@ -200,4 +200,4 @@ finish one completely before starting the other.
 Goal: a single citizen making rule-based decisions over 100 simulated days,
 with output written to a log file. No database, no LLM, no frontend.
 
-See `/docs/build-phases.md` for the full phase breakdown.
+See `Docs/city-sim-build-phases.md` for the full phase breakdown.
