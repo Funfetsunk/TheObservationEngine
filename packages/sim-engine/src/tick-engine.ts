@@ -1,53 +1,85 @@
-import { Citizen, CitizenAction, CitizenNeeds } from '@wixbury/shared';
+import { Redis } from 'ioredis';
+import { PrismaClient } from '@wixbury/db';
+import { Citizen, EventType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
-import { POC_TICK_INTERVAL_MS, TICKS_PER_SIM_DAY, SIM_DAYS_TO_RUN } from './constants';
+import { RelationshipEngine } from './relationship-engine';
+import { emitEvents, PendingEvent } from './event-emitter';
+import { syncCitizensToDb, saveTickState } from './db-sync';
+import { TICK_INTERVAL_MS, TICKS_PER_SIM_DAY, NEEDS_CRISIS_THRESHOLD, SIM_DAYS_TO_RUN } from './constants';
 
-export type ActionCounts = Record<CitizenAction, number>;
-
-export type DayCompleteCallback = (
-  day: number,
-  actionCounts: ActionCounts,
-  endOfDayNeeds: CitizenNeeds,
-) => void;
-
-function emptyActionCounts(): ActionCounts {
-  return {
-    [CitizenAction.Eating]: 0,
-    [CitizenAction.Sleeping]: 0,
-    [CitizenAction.Socialising]: 0,
-    [CitizenAction.Working]: 0,
-    [CitizenAction.Leisure]: 0,
-  };
+function collectCrisisEvents(citizens: Citizen[], tick: number): PendingEvent[] {
+  const events: PendingEvent[] = [];
+  for (const c of citizens) {
+    const needEntries = Object.entries(c.needs) as [keyof typeof c.needs, number][];
+    for (const [need, value] of needEntries) {
+      if (value < NEEDS_CRISIS_THRESHOLD) {
+        events.push({
+          type: EventType.NeedsCrisis,
+          occurredAt: tick,
+          citizenIds: [c.id],
+          data: { citizenName: c.name, need, value },
+          significance: 0.4,
+        });
+      }
+    }
+  }
+  return events;
 }
 
 export function startTickEngine(
-  citizen: Citizen,
-  onDayComplete: DayCompleteCallback,
-  onSimComplete: () => void,
+  citizens: Citizen[],
+  relationships: RelationshipEngine,
+  prisma: PrismaClient,
+  redis: Redis,
+  initialTickNumber: number,
 ): void {
-  let tick = 0;
-  const totalTicks = TICKS_PER_SIM_DAY * SIM_DAYS_TO_RUN;
-  let actionCounts = emptyActionCounts();
+  let tickNumber = initialTickNumber;
 
   const interval = setInterval(() => {
-    try {
-      const action = tickCitizen(citizen);
-      actionCounts[action]++;
-      tick++;
+    void (async () => {
+      tickNumber++;
+      try {
+        for (const citizen of citizens) {
+          tickCitizen(citizen);
+        }
 
-      if (tick % TICKS_PER_SIM_DAY === 0) {
-        const day = tick / TICKS_PER_SIM_DAY;
-        onDayComplete(day, { ...actionCounts }, { ...citizen.needs });
-        actionCounts = emptyActionCounts();
-        citizen.workedTodayTicks = 0;
-      }
+        const crisisEvents = collectCrisisEvents(citizens, tickNumber);
+        const relEvents = relationships.processColocations(citizens, tickNumber);
+        const allEvents: PendingEvent[] = [...crisisEvents, ...relEvents];
 
-      if (tick >= totalTicks) {
-        clearInterval(interval);
-        onSimComplete();
+        await syncCitizensToDb(citizens, prisma);
+        await relationships.syncDirty(prisma);
+        await emitEvents(allEvents, prisma);
+        await saveTickState(redis, tickNumber);
+
+        if (tickNumber % TICKS_PER_SIM_DAY === 0) {
+          const day = Math.floor(tickNumber / TICKS_PER_SIM_DAY);
+          for (const c of citizens) c.workedTodayTicks = 0;
+          console.log(JSON.stringify({
+            event: 'day_complete',
+            day,
+            tick: tickNumber,
+            citizens: citizens.length,
+            relationships: relationships.getCount(),
+            events: allEvents.length,
+          }));
+
+          if (SIM_DAYS_TO_RUN > 0 && day >= SIM_DAYS_TO_RUN) {
+            console.log(JSON.stringify({ event: 'sim_complete', days: day }));
+            clearInterval(interval);
+            process.exit(0);
+          }
+        }
+      } catch (err) {
+        console.error(JSON.stringify({
+          event: 'tick_error',
+          tick: tickNumber,
+          error: err instanceof Error ? err.message : String(err),
+        }));
       }
-    } catch (err) {
-      console.error(`Tick ${tick} error:`, err instanceof Error ? err.message : err);
-    }
-  }, POC_TICK_INTERVAL_MS);
+    })();
+  }, TICK_INTERVAL_MS);
+
+  process.on('SIGTERM', () => { clearInterval(interval); process.exit(0); });
+  process.on('SIGINT', () => { clearInterval(interval); process.exit(0); });
 }

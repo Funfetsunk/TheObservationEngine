@@ -1,0 +1,194 @@
+import { PrismaClient } from '@wixbury/db';
+import { Citizen, CitizenTraits, EventType, JobType, RelationshipType } from '@wixbury/shared';
+import {
+  RELATIONSHIP_SCORE_CHANGE_PER_TICK,
+  RELATIONSHIP_FRIEND_THRESHOLD,
+  RELATIONSHIP_RIVAL_THRESHOLD,
+  RELATIONSHIP_CAP,
+} from './constants';
+import { PendingEvent } from './event-emitter';
+
+interface RelationshipRecord {
+  id: string;
+  citizenAId: string;
+  citizenBId: string;
+  score: number;
+  type: RelationshipType;
+  formedAt: number;
+  lastUpdated: number;
+  dirty: boolean;
+}
+
+type RelationshipKey = string;
+
+function makeKey(aId: string, bId: string): RelationshipKey {
+  return aId < bId ? `${aId}:${bId}` : `${bId}:${aId}`;
+}
+
+function computeCompatibility(a: CitizenTraits, b: CitizenTraits): number {
+  const diffs = [
+    Math.abs(a.ambition - b.ambition),
+    Math.abs(a.honesty - b.honesty),
+    Math.abs(a.sociability - b.sociability),
+    Math.abs(a.empathy - b.empathy),
+    Math.abs(a.riskTolerance - b.riskTolerance),
+  ];
+  return 1 - diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
+}
+
+function resolveType(score: number, aJob: JobType, bJob: JobType): RelationshipType {
+  if (score < RELATIONSHIP_RIVAL_THRESHOLD) return RelationshipType.Rival;
+  if (score >= RELATIONSHIP_FRIEND_THRESHOLD) return RelationshipType.Friend;
+  if (aJob === bJob && aJob !== JobType.Unemployed) return RelationshipType.Colleague;
+  return RelationshipType.Acquaintance;
+}
+
+export class RelationshipEngine {
+  private readonly map = new Map<RelationshipKey, RelationshipRecord>();
+
+  async load(prisma: PrismaClient): Promise<void> {
+    const rows = await prisma.relationship.findMany();
+    for (const row of rows) {
+      const key = makeKey(row.citizenAId, row.citizenBId);
+      this.map.set(key, {
+        id: row.id,
+        citizenAId: row.citizenAId,
+        citizenBId: row.citizenBId,
+        score: row.score,
+        type: row.type as RelationshipType,
+        formedAt: row.formedAt,
+        lastUpdated: row.lastUpdated,
+        dirty: false,
+      });
+    }
+  }
+
+  processColocations(citizens: Citizen[], tickNumber: number): PendingEvent[] {
+    const groups = new Map<string, Citizen[]>();
+    for (const c of citizens) {
+      const existing = groups.get(c.currentLocationId);
+      if (existing) {
+        existing.push(c);
+      } else {
+        groups.set(c.currentLocationId, [c]);
+      }
+    }
+
+    const events: PendingEvent[] = [];
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      for (let i = 0; i < group.length - 1; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          const ev = this.updatePair(group[i], group[j], tickNumber);
+          if (ev) events.push(ev);
+        }
+      }
+    }
+    return events;
+  }
+
+  private updatePair(a: Citizen, b: Citizen, tick: number): PendingEvent | null {
+    const key = makeKey(a.id, b.id);
+    const compatibility = computeCompatibility(a.traits, b.traits);
+    const scoreChange = (compatibility - 0.5) * RELATIONSHIP_SCORE_CHANGE_PER_TICK;
+
+    const existing = this.map.get(key);
+    if (!existing) {
+      this.enforceCapFor(a);
+      this.enforceCapFor(b);
+
+      const [aId, bId] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
+      const rec: RelationshipRecord = {
+        id: crypto.randomUUID(),
+        citizenAId: aId,
+        citizenBId: bId,
+        score: Math.max(-1, Math.min(1, scoreChange)),
+        type: RelationshipType.Acquaintance,
+        formedAt: tick,
+        lastUpdated: tick,
+        dirty: true,
+      };
+      this.map.set(key, rec);
+
+      return {
+        type: EventType.RelationshipFormed,
+        occurredAt: tick,
+        citizenIds: [a.id, b.id],
+        data: { citizenAName: a.name, citizenBName: b.name, initialScore: rec.score },
+        significance: 0.3,
+      };
+    }
+
+    const prevType = existing.type;
+    existing.score = Math.max(-1, Math.min(1, existing.score + scoreChange));
+    existing.type = resolveType(existing.score, a.job, b.job);
+    existing.lastUpdated = tick;
+    existing.dirty = true;
+
+    if (existing.type !== prevType) {
+      return {
+        type: EventType.RelationshipChanged,
+        occurredAt: tick,
+        citizenIds: [a.id, b.id],
+        data: {
+          citizenAName: a.name,
+          citizenBName: b.name,
+          from: prevType,
+          to: existing.type,
+          score: existing.score,
+        },
+        significance: 0.5,
+      };
+    }
+
+    return null;
+  }
+
+  private enforceCapFor(citizen: Citizen): void {
+    const rels = [...this.map.values()].filter(
+      r => r.citizenAId === citizen.id || r.citizenBId === citizen.id,
+    );
+    if (rels.length < RELATIONSHIP_CAP) return;
+
+    const acquaintances = rels
+      .filter(r => r.type === RelationshipType.Acquaintance)
+      .sort((a, b) => a.score - b.score);
+
+    if (acquaintances.length > 0) {
+      this.map.delete(makeKey(acquaintances[0].citizenAId, acquaintances[0].citizenBId));
+    }
+  }
+
+  async syncDirty(prisma: PrismaClient): Promise<void> {
+    const dirty = [...this.map.values()].filter(r => r.dirty);
+    if (dirty.length === 0) return;
+
+    await prisma.$transaction(
+      dirty.map(r =>
+        prisma.relationship.upsert({
+          where: { citizenAId_citizenBId: { citizenAId: r.citizenAId, citizenBId: r.citizenBId } },
+          create: {
+            id: r.id,
+            citizenAId: r.citizenAId,
+            citizenBId: r.citizenBId,
+            score: r.score,
+            type: r.type,
+            formedAt: r.formedAt,
+            lastUpdated: r.lastUpdated,
+          },
+          update: {
+            score: r.score,
+            type: r.type,
+            lastUpdated: r.lastUpdated,
+          },
+        }),
+      ),
+    );
+
+    for (const r of dirty) r.dirty = false;
+  }
+
+  getCount(): number {
+    return this.map.size;
+  }
+}

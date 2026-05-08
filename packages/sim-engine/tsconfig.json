@@ -9,7 +9,8 @@
     "declaration": true,
     "baseUrl": ".",
     "paths": {
-      "@wixbury/shared": ["../shared/src"]
+      "@wixbury/shared": ["../shared/src"],
+      "@wixbury/db": ["../db/src"]
     }
   },
   "include": ["src/**/*"],

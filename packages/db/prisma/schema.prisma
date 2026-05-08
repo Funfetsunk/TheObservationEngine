@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model District {
+  id        String    @id
+  name      String
+  character String
+  citizens  Citizen[]
+  events    Event[]
+
+  @@map("districts")
+}
+
+model Citizen {
+  id              String   @id @default(uuid())
+  name            String
+  age             Int
+  bornAt          Int
+  diedAt          Int?
+  homeDistrictId  String
+  homeDistrict    District @relation(fields: [homeDistrictId], references: [id])
+  jobType         String
+  biography       String?
+
+  traitAmbition      Float
+  traitHonesty       Float
+  traitSociability   Float
+  traitEmpathy       Float
+  traitRiskTolerance Float
+  traitReligiosity   Float
+  traitPolitical     Float
+
+  needHunger  Float
+  needEnergy  Float
+  needSocial  Float
+
+  currentAction     String
+  currentLocationId String
+  workedTodayTicks  Int @default(0)
+
+  relationshipsAsA Relationship[] @relation("RelCitizenA")
+  relationshipsAsB Relationship[] @relation("RelCitizenB")
+
+  @@map("citizens")
+}
+
+model Relationship {
+  id          String @id @default(uuid())
+  citizenAId  String
+  citizenBId  String
+  score       Float
+  type        String
+  formedAt    Int
+  lastUpdated Int
+
+  citizenA Citizen @relation("RelCitizenA", fields: [citizenAId], references: [id])
+  citizenB Citizen @relation("RelCitizenB", fields: [citizenBId], references: [id])
+
+  @@unique([citizenAId, citizenBId])
+  @@map("relationships")
+}
+
+model Event {
+  id           String    @id @default(uuid())
+  type         String
+  occurredAt   Int
+  districtId   String?
+  district     District? @relation(fields: [districtId], references: [id])
+  citizenIds   String[]
+  data         Json
+  significance Float
+  writtenUp    Boolean   @default(false)
+
+  @@map("events")
+}

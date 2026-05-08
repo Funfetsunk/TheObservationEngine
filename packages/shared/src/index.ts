@@ -1,1 +1,4 @@
 export * from './types/citizen';
+export * from './types/district';
+export * from './types/event';
+export * from './types/relationship';

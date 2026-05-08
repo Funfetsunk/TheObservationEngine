@@ -50,7 +50,7 @@ Never import anything from `sim-engine` into `web`, or vice versa.
 | Frontend | Next.js 14, Tailwind CSS |
 | Real-time | WebSockets (ws library) |
 | LLM | Anthropic Claude API (claude-sonnet-4-20250514) |
-| Deployment | Railway (sim engine + db), Vercel (web) |
+| Deployment | Hetzner CX22 + Coolify (sim engine + db), Vercel (web) |
 
 ---
 
@@ -75,6 +75,8 @@ const ONE_SIM_WEEK = TICK_RATE_MS * 24 * 7;
 setInterval(fn, 60000);
 setTimeout(fn, 1440 * 60 * 1000);
 ```
+
+**Phase 1 exception:** The POC uses `POC_TICK_INTERVAL_MS = 100` as the actual `setInterval` driver so 100 simulated days run in minutes, not 40 real hours. `TICK_RATE_MS` remains the canonical constant for all time calculations but is not used as the interval until Phase 2.
 
 ---
 
@@ -193,11 +195,26 @@ finish one completely before starting the other.
 
 ---
 
+## Cost awareness
+
+**Always flag to the user before implementing anything that incurs real-money costs.**
+
+| What | When it costs | Trigger |
+|---|---|---|
+| Claude API | Phase 3+ | Every newspaper edition (1 call per 168 ticks) |
+| Hetzner CX22 | Phase 4+ deployment | ~€4/month for sim engine + DB server |
+| Vercel | Phase 4+ deployment | Free tier likely sufficient for read-only frontend |
+
+**Phases 1–2 are entirely free** — local Node.js, Docker Postgres, Docker Redis, no API calls.
+**Phase 3 onwards: get explicit user approval before wiring up any LLM call or cloud deployment.**
+
+---
+
 ## What we are building right now
 
-**Current phase:** Phase 1 — Proof of concept: the citizen loop
+**Current phase:** Phase 2 — World state: database and relationships
 
-Goal: a single citizen making rule-based decisions over 100 simulated days,
-with output written to a log file. No database, no LLM, no frontend.
+Goal: persistent world with 15 citizens across 4 districts, relationship graph,
+and event log — all persisted to PostgreSQL with tick state in Redis.
 
 See `Docs/city-sim-build-phases.md` for the full phase breakdown.

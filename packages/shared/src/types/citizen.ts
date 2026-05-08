@@ -37,12 +37,15 @@ export interface CitizenNeeds {
 }
 
 export interface Citizen {
+  id: string;
   name: string;
   age: number;
   job: JobType;
+  homeDistrictId: string;
+  currentLocationId: string;
   traits: CitizenTraits;
   needs: CitizenNeeds;
   currentAction: CitizenAction;
-  dailyWorkTarget: number; // ticks per day; 0 for unemployed
-  workedTodayTicks: number; // reset each day by tick engine
+  dailyWorkTarget: number;
+  workedTodayTicks: number;
 }
