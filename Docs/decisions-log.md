@@ -61,5 +61,25 @@ Paste this file into Claude Code sessions when working on affected subsystems.
 
 ## Development decisions
 
-*Add entries here as the build progresses.*
+### [Phase 1] POC tick rate uses separate constant from production rate
+**Date:** 2026-05-08
+**Decision:** `POC_TICK_INTERVAL_MS = 100` drives `setInterval` in Phase 1. `TICK_RATE_MS = 60_000` remains the canonical constant but is not used as the interval until Phase 2.
+**Reason:** 100 simulated days at 60s/tick would take 40 real hours. POC needs to run in minutes to be iterable.
+**Alternatives rejected:** Overriding `TICK_RATE_MS` directly (violates the single-constant rule), env var override (adds complexity with no benefit in Phase 1)
+
+---
+
+### [Citizens] Work quota derived from ambition trait
+**Date:** 2026-05-08
+**Decision:** Employed citizens work `round(5 + ambition × 5)` hours per day (5–10h). Unemployed work 0h. Remaining hours are `Leisure` (pure downtime, no recovery).
+**Reason:** 21h/day work (the naive "work unless needs fire" default) is unrealistic. Ambition is the most semantically correct trait for work drive. Leisure hours will be where relationships form in Phase 2.
+**Alternatives rejected:** Fixed 8h for all citizens (no trait influence), leisure giving passive social recovery (crowded out active socialising — removed)
+
+---
+
+### [Citizens] Sleep tuned to ~7h/day with explicit decay/recovery rates
+**Date:** 2026-05-08
+**Decision:** `ENERGY_DECAY_PER_TICK = 0.012`, `ENERGY_RECOVERY_PER_TICK = 0.04`. Net sleep recovery = +0.028/tick → 0.20→0.40 in ~7 ticks. Awake period 0.40→0.20 = ~17 ticks. 24h natural cycle.
+**Reason:** Default 1h sleep was unrealistic. Target was 5–8h; 7h emerged from matching decay/recovery to produce a natural 24h cycle without hardcoding a sleep duration.
+**Alternatives rejected:** High recovery rate (0.50/tick) giving 1-tick sleep, raising `NEED_RECOVERY_TARGET` for energy only (asymmetric constants harder to reason about)
 
