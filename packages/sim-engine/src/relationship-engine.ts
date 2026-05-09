@@ -5,6 +5,8 @@ import {
   RELATIONSHIP_FRIEND_THRESHOLD,
   RELATIONSHIP_RIVAL_THRESHOLD,
   RELATIONSHIP_CAP,
+  RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD,
+  RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF,
 } from './constants';
 import { PendingEvent } from './event-emitter';
 import { scoreSignificance } from './significance-scorer';
@@ -37,8 +39,20 @@ function computeCompatibility(a: CitizenTraits, b: CitizenTraits): number {
   return 1 - diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
 }
 
-function resolveType(score: number, aJob: JobType, bJob: JobType): RelationshipType {
+function resolveType(
+  score: number,
+  aJob: JobType,
+  bJob: JobType,
+  aSociability: number,
+  bSociability: number,
+): RelationshipType {
   if (score < RELATIONSHIP_RIVAL_THRESHOLD) return RelationshipType.Rival;
+  if (
+    score >= RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD &&
+    Math.abs(aSociability - bSociability) < RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF
+  ) {
+    return RelationshipType.Romantic;
+  }
   if (score >= RELATIONSHIP_FRIEND_THRESHOLD) return RelationshipType.Friend;
   if (aJob === bJob && aJob !== JobType.Unemployed) return RelationshipType.Colleague;
   return RelationshipType.Acquaintance;
@@ -99,12 +113,13 @@ export class RelationshipEngine {
       this.enforceCapFor(b);
 
       const [aId, bId] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
+      const initialScore = Math.max(-1, Math.min(1, scoreChange));
       const rec: RelationshipRecord = {
         id: crypto.randomUUID(),
         citizenAId: aId,
         citizenBId: bId,
-        score: Math.max(-1, Math.min(1, scoreChange)),
-        type: RelationshipType.Acquaintance,
+        score: initialScore,
+        type: resolveType(initialScore, a.job, b.job, a.traits.sociability, b.traits.sociability),
         formedAt: tick,
         lastUpdated: tick,
         dirty: true,
@@ -122,7 +137,7 @@ export class RelationshipEngine {
 
     const prevType = existing.type;
     existing.score = Math.max(-1, Math.min(1, existing.score + scoreChange));
-    existing.type = resolveType(existing.score, a.job, b.job);
+    existing.type = resolveType(existing.score, a.job, b.job, a.traits.sociability, b.traits.sociability);
     existing.lastUpdated = tick;
     existing.dirty = true;
 
@@ -187,6 +202,12 @@ export class RelationshipEngine {
     );
 
     for (const r of dirty) r.dirty = false;
+  }
+
+  getRomanticPairs(): Array<[string, string]> {
+    return [...this.map.values()]
+      .filter(r => r.type === RelationshipType.Romantic)
+      .map(r => [r.citizenAId, r.citizenBId] as [string, string]);
   }
 
   getCount(): number {

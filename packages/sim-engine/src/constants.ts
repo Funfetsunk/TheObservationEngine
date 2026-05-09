@@ -50,3 +50,13 @@ export const RELATIONSHIP_SCORE_CHANGE_PER_TICK = 0.005;
 export const RELATIONSHIP_FRIEND_THRESHOLD = 0.4;
 export const RELATIONSHIP_RIVAL_THRESHOLD = -0.3;
 export const RELATIONSHIP_CAP = 50;
+export const RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD = 0.7;
+export const RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF = 0.2;
+
+// Population dynamics (Phase 5 System 1)
+export const TICKS_PER_SIM_YEAR = TICKS_PER_SIM_DAY * 365;   // 8760 ticks ≈ 6 real days
+export const CITIZEN_MIN_DEATH_AGE = 60;
+export const CITIZEN_MAX_DEATH_AGE = 90;
+export const BIRTH_PROBABILITY_PER_TICK = 0.0002;
+export const MIGRATION_PROBABILITY_PER_TICK = 0.0005;
+export const CRISIS_DEATH_CONSECUTIVE_TICKS = 48;              // ~2 sim days

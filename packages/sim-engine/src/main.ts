@@ -12,6 +12,7 @@ import { createQueue, startWorker } from './queue';
 import { AnthropicClient } from './llm/anthropic-client';
 import { MockLLMClient } from './llm/mock-llm-client';
 import { MIN_WORK_HOURS, MAX_WORK_HOURS } from './constants';
+import { PopulationEngine } from './population-engine';
 
 interface DbCitizenRow {
   id: string;
@@ -116,7 +117,8 @@ async function main(): Promise<void> {
     llm: useMock ? 'mock' : 'anthropic',
   }));
 
-  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber);
+  const populationEngine = new PopulationEngine();
+  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine);
 }
 
 main().catch((err: unknown) => {

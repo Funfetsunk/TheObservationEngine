@@ -4,6 +4,7 @@ import { PrismaClient } from '@wixbury/db';
 import { Citizen, EventType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
+import { PopulationEngine } from './population-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
 import { scoreSignificance } from './significance-scorer';
@@ -11,6 +12,7 @@ import { publishTick, publishSignificantEvents } from './tick-publisher';
 import {
   TICK_INTERVAL_MS,
   TICKS_PER_SIM_DAY,
+  TICKS_PER_SIM_YEAR,
   NEEDS_CRISIS_THRESHOLD,
   SIM_DAYS_TO_RUN,
   NEWSPAPER_EDITION_INTERVAL_TICKS,
@@ -43,6 +45,7 @@ export function startTickEngine(
   redis: Redis,
   queue: Queue,
   initialTickNumber: number,
+  populationEngine: PopulationEngine,
 ): void {
   let tickNumber = initialTickNumber;
   let tickInProgress = false;
@@ -59,10 +62,41 @@ export function startTickEngine(
 
         const crisisEvents = collectCrisisEvents(citizens, tickNumber);
         const relEvents = relationships.processColocations(citizens, tickNumber);
-        const allEvents: PendingEvent[] = [...crisisEvents, ...relEvents];
 
         await syncCitizensToDb(citizens, prisma);
         await relationships.syncDirty(prisma);
+
+        if (tickNumber % TICKS_PER_SIM_YEAR === 0 && tickNumber > 0) {
+          await populationEngine.tickAgeing(citizens, tickNumber, prisma);
+        }
+
+        const naturalDeaths = populationEngine.checkNaturalDeaths(citizens, tickNumber);
+        const crisisDeaths = populationEngine.checkCrisisDeaths(citizens, tickNumber);
+        const birthEvents = await populationEngine.checkBirths(citizens, relationships, tickNumber, prisma);
+        const migrationEvents = await populationEngine.checkMigration(citizens, tickNumber, prisma);
+
+        // Deduplicate deaths — one event per citizen if both natural + crisis fire
+        const deathById = new Map<string, PendingEvent>();
+        for (const ev of [...naturalDeaths, ...crisisDeaths]) {
+          if (!deathById.has(ev.citizenIds[0])) deathById.set(ev.citizenIds[0], ev);
+        }
+        const deathEvents: PendingEvent[] = [];
+        for (const [citizenId, ev] of deathById) {
+          const dying = citizens.find(c => c.id === citizenId);
+          if (dying) {
+            deathEvents.push(ev);
+            await populationEngine.killCitizen(dying, citizens, tickNumber, prisma);
+          }
+        }
+
+        const allEvents: PendingEvent[] = [
+          ...crisisEvents,
+          ...relEvents,
+          ...deathEvents,
+          ...birthEvents,
+          ...migrationEvents,
+        ];
+
         await emitEvents(allEvents, prisma);
         await saveTickState(redis, tickNumber);
 
@@ -92,7 +126,7 @@ export function startTickEngine(
             event: 'day_complete',
             day,
             tick: tickNumber,
-            citizens: citizens.length,
+            population: citizens.length,
             relationships: relationships.getCount(),
             events: allEvents.length,
           }));

@@ -18,6 +18,10 @@ export async function saveTickState(redis: Redis, tickNumber: number): Promise<v
   await redis.set(TICK_STATE_KEY, JSON.stringify({ tickNumber }));
 }
 
+export async function syncCitizenAge(citizenId: string, age: number, prisma: PrismaClient): Promise<void> {
+  await prisma.citizen.update({ where: { id: citizenId }, data: { age } });
+}
+
 export async function syncCitizensToDb(citizens: Citizen[], prisma: PrismaClient): Promise<void> {
   await Promise.all(
     citizens.map(c =>

@@ -5,4 +5,7 @@ export enum EventType {
   RelationshipFormed = 'relationship_formed',
   RelationshipChanged = 'relationship_changed',
   NeedsCrisis = 'needs_crisis',
+  CitizenBorn = 'citizen_born',
+  CitizenDied = 'citizen_died',
+  CitizenMigrated = 'citizen_migrated',
 }
