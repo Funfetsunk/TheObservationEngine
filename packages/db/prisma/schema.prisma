@@ -79,3 +79,14 @@ model Event {
 
   @@map("events")
 }
+
+model NewspaperEdition {
+  id        String   @id @default(uuid())
+  editionAt Int
+  weekStart Int
+  weekEnd   Int
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("newspaper_editions")
+}

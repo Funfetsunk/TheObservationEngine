@@ -83,3 +83,35 @@ Paste this file into Claude Code sessions when working on affected subsystems.
 **Reason:** Default 1h sleep was unrealistic. Target was 5–8h; 7h emerged from matching decay/recovery to produce a natural 24h cycle without hardcoding a sleep duration.
 **Alternatives rejected:** High recovery rate (0.50/tick) giving 1-tick sleep, raising `NEED_RECOVERY_TARGET` for energy only (asymmetric constants harder to reason about)
 
+---
+
+### [Phase 3] LLM client uses dependency injection — mock in tests, real in prod
+**Date:** 2026-05-09
+**Decision:** `NewspaperJob` and `BiographyUpdater` accept an `LLMClient` interface via constructor. Tests inject `MockLLMClient` returning fixture text. Production injects real `AnthropicClient`. Real API calls reserved for manual smoke tests only.
+**Reason:** All pipeline logic (event batching, significance filtering, article storage, `written_up` flag) is testable without incurring API cost. One manual smoke test verifies prompt quality, token counts, and cache behaviour.
+**Alternatives rejected:** `MOCK_LLM` env var toggle (leaks test concern into prod code), always hitting real API in tests (unnecessary cost, slow feedback loop)
+
+---
+
+### [Phase 3] Cost estimate confirmed before proceeding
+**Date:** 2026-05-09
+**Decision:** Phase 3 estimated at ~$5–7/month at 15-citizen scale, ~$10–15/month at full 200 citizens. Primary driver: ~257 newspaper API calls/month at ~3k input + ~1k output tokens each. Aggressive bio caching (cache rate $0.30/M vs $3.00/M) is the main cost lever.
+**Reason:** CLAUDE.md requires explicit user approval before wiring any LLM call. Cost breakdown reviewed and approved before implementation begins.
+**Alternatives rejected:** N/A — cost awareness decision, not an implementation choice
+
+---
+
+### [Phase 3] Significance scorer replaces hardcoded values
+**Date:** 2026-05-09
+**Decision:** `scoreSignificance(type, involvedCitizens)` in `significance-scorer.ts` replaces hardcoded `significance: 0.3/0.4/0.5` literals in `relationship-engine.ts` and `tick-engine.ts`. Prominent jobs (Journalist, Councillor, Doctor) add +0.20; noteworthy jobs (Clergy, Teacher, Publican) add +0.10.
+**Reason:** RelationshipChanged + prominent citizen = 0.70 → newspaper eligible. Two labourers = 0.50 → not eligible. This produces newspaper content from Phase 2 events without lowering the 0.6 threshold.
+**Alternatives rejected:** Lowering SIGNIFICANCE_THRESHOLD (waters down the newspaper), hardcoding per-pair rules (not extensible)
+
+---
+
+### [Phase 3] BullMQ via beta.promptCaching.messages API
+**Date:** 2026-05-09
+**Decision:** Newspaper job enqueued via BullMQ every 168 ticks. `AnthropicClient` uses `client.beta.promptCaching.messages.create()` (SDK 0.26.x beta namespace) with `cache_control: { type: 'ephemeral' }` on system prompt. Bio updates capped at 3 per edition, threshold 0.75 significance.
+**Reason:** SDK 0.26.x has prompt caching under beta namespace — not in the main `messages` API. BullMQ provides jobId-based deduplication (prevents double editions if tick loop fires twice near the interval).
+**Alternatives rejected:** Direct async call from tick loop (no deduplication), upgrading SDK (requires testing)
+

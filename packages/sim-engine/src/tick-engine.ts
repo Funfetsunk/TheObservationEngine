@@ -1,11 +1,20 @@
 import { Redis } from 'ioredis';
+import { Queue } from 'bullmq';
 import { PrismaClient } from '@wixbury/db';
 import { Citizen, EventType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
-import { TICK_INTERVAL_MS, TICKS_PER_SIM_DAY, NEEDS_CRISIS_THRESHOLD, SIM_DAYS_TO_RUN } from './constants';
+import { scoreSignificance } from './significance-scorer';
+import {
+  TICK_INTERVAL_MS,
+  TICKS_PER_SIM_DAY,
+  NEEDS_CRISIS_THRESHOLD,
+  SIM_DAYS_TO_RUN,
+  NEWSPAPER_EDITION_INTERVAL_TICKS,
+} from './constants';
+import type { NewspaperEditionJobData } from './queue';
 
 function collectCrisisEvents(citizens: Citizen[], tick: number): PendingEvent[] {
   const events: PendingEvent[] = [];
@@ -18,7 +27,7 @@ function collectCrisisEvents(citizens: Citizen[], tick: number): PendingEvent[] 
           occurredAt: tick,
           citizenIds: [c.id],
           data: { citizenName: c.name, need, value },
-          significance: 0.4,
+          significance: scoreSignificance(EventType.NeedsCrisis, [c]),
         });
       }
     }
@@ -31,6 +40,7 @@ export function startTickEngine(
   relationships: RelationshipEngine,
   prisma: PrismaClient,
   redis: Redis,
+  queue: Queue,
   initialTickNumber: number,
 ): void {
   let tickNumber = initialTickNumber;
@@ -51,6 +61,21 @@ export function startTickEngine(
         await relationships.syncDirty(prisma);
         await emitEvents(allEvents, prisma);
         await saveTickState(redis, tickNumber);
+
+        if (tickNumber % NEWSPAPER_EDITION_INTERVAL_TICKS === 0) {
+          const editionNumber = Math.floor(tickNumber / NEWSPAPER_EDITION_INTERVAL_TICKS);
+          const weekStart = tickNumber - NEWSPAPER_EDITION_INTERVAL_TICKS + 1;
+          const jobData: NewspaperEditionJobData = {
+            weekStart,
+            weekEnd: tickNumber,
+            currentTick: tickNumber,
+          };
+          await queue.add('generate_newspaper_edition', jobData, {
+            jobId: `edition-${editionNumber}`,
+            removeOnComplete: { count: 10 },
+            removeOnFail: { count: 5 },
+          });
+        }
 
         if (tickNumber % TICKS_PER_SIM_DAY === 0) {
           const day = Math.floor(tickNumber / TICKS_PER_SIM_DAY);

@@ -13,6 +13,8 @@ export const SIM_DAYS_TO_RUN = process.env['SIM_DAYS_TO_RUN']
   : 0;
 
 export const TICKS_PER_SIM_DAY = 24;
+export const TICKS_PER_SIM_WEEK = TICKS_PER_SIM_DAY * 7; // 168 ticks = 1 simulated week = 168 real minutes
+export const NEWSPAPER_EDITION_INTERVAL_TICKS = TICKS_PER_SIM_WEEK;
 
 // From founding design doc — needs priority thresholds
 export const NEED_PRIORITY_THRESHOLD = 0.2;
@@ -36,6 +38,12 @@ export const MAX_WORK_HOURS = 10;
 
 // Events: minimum significance to be considered for newspaper (Phase 3)
 export const SIGNIFICANCE_THRESHOLD = 0.6;
+
+// Biography: only regenerate when triggering event significance >= this
+export const BIO_UPDATE_SIGNIFICANCE_THRESHOLD = 0.75;
+
+// Newspaper: max biography updates triggered per edition (cost control)
+export const MAX_BIO_UPDATES_PER_EDITION = 3;
 
 // Relationship engine
 export const RELATIONSHIP_SCORE_CHANGE_PER_TICK = 0.005;

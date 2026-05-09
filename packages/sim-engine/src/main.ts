@@ -1,3 +1,6 @@
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 import { getPrismaClient } from '@wixbury/db';
 import { Redis } from 'ioredis';
 import { Citizen, CitizenAction, JobType } from '@wixbury/shared';
@@ -5,6 +8,9 @@ import { seed } from './seed';
 import { loadTickState } from './db-sync';
 import { RelationshipEngine } from './relationship-engine';
 import { startTickEngine } from './tick-engine';
+import { createQueue, startWorker } from './queue';
+import { AnthropicClient } from './llm/anthropic-client';
+import { MockLLMClient } from './llm/mock-llm-client';
 import { MIN_WORK_HOURS, MAX_WORK_HOURS } from './constants';
 
 interface DbCitizenRow {
@@ -63,10 +69,28 @@ function dbRowToCitizen(row: DbCitizenRow): Citizen {
 
 async function main(): Promise<void> {
   const prisma = getPrismaClient();
-  const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6379');
+  const redisUrl = process.env['REDIS_URL'] ?? 'redis://localhost:6379';
+  const redis = new Redis(redisUrl);
 
   redis.on('error', (err: Error) => {
     console.error(JSON.stringify({ event: 'redis_error', error: err.message }));
+  });
+
+  const apiKey = process.env['ANTHROPIC_API_KEY'];
+  const llmClient = apiKey ? new AnthropicClient(apiKey) : new MockLLMClient();
+
+  if (!apiKey) {
+    console.log(JSON.stringify({
+      event: 'llm_mock_mode',
+      reason: 'ANTHROPIC_API_KEY not set — newspaper will use mock LLM',
+    }));
+  }
+
+  const queue = createQueue(redisUrl);
+  const worker = startWorker(redisUrl, prisma, llmClient);
+
+  worker.on('error', (err: Error) => {
+    console.error(JSON.stringify({ event: 'worker_error', error: err.message }));
   });
 
   const districtCount = await prisma.district.count();
@@ -87,9 +111,10 @@ async function main(): Promise<void> {
     citizens: citizens.length,
     tick: tickState.tickNumber,
     relationships: relationships.getCount(),
+    llm: apiKey ? 'anthropic' : 'mock',
   }));
 
-  startTickEngine(citizens, relationships, prisma, redis, tickState.tickNumber);
+  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber);
 }
 
 main().catch((err: unknown) => {

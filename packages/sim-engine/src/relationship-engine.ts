@@ -7,6 +7,7 @@ import {
   RELATIONSHIP_CAP,
 } from './constants';
 import { PendingEvent } from './event-emitter';
+import { scoreSignificance } from './significance-scorer';
 
 interface RelationshipRecord {
   id: string;
@@ -115,7 +116,7 @@ export class RelationshipEngine {
         occurredAt: tick,
         citizenIds: [a.id, b.id],
         data: { citizenAName: a.name, citizenBName: b.name, initialScore: rec.score },
-        significance: 0.3,
+        significance: scoreSignificance(EventType.RelationshipFormed, [a, b]),
       };
     }
 
@@ -137,7 +138,7 @@ export class RelationshipEngine {
           to: existing.type,
           score: existing.score,
         },
-        significance: 0.5,
+        significance: scoreSignificance(EventType.RelationshipChanged, [a, b]),
       };
     }
 

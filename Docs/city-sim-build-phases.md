@@ -38,7 +38,7 @@ A persistent online city simulation that runs autonomously, generating emergent 
 
 **Deliverable:** A running simulation with a small population whose relationships shift over time, fully persisted to a database.
 
-**Stack:** PostgreSQL, Prisma or Drizzle ORM, Redis for tick state
+**Stack:** PostgreSQL, Prisma ORM, Redis for tick state
 
 ---
 
@@ -50,7 +50,7 @@ A persistent online city simulation that runs autonomously, generating emergent 
 
 **Tasks:**
 - Event significance scorer — rule-based filter that flags events worth writing about
-- Article generator — structured prompt sending flagged events to Claude, returning a formatted article
+- Article generator — structured prompt sending flagged events to Claude, returning a formatted article (one edition per simulated week = 168 ticks)
 - Newspaper archive — store generated articles in the database with edition dates
 - Citizen biography updater — short LLM call after major life events to update a prose summary
 - Cost controls — batch events, cap daily LLM calls, cache summaries aggressively

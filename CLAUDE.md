@@ -49,7 +49,7 @@ Never import anything from `sim-engine` into `web`, or vice versa.
 | Job queue | BullMQ |
 | Frontend | Next.js 14, Tailwind CSS |
 | Real-time | WebSockets (ws library) |
-| LLM | Anthropic Claude API (claude-sonnet-4-20250514) |
+| LLM | Anthropic Claude API (claude-sonnet-4-6) |
 | Deployment | Hetzner CX22 + Coolify (sim engine + db), Vercel (web) |
 
 ---
@@ -131,7 +131,7 @@ Never delete event rows — the historical archive depends on them being permane
 
 - **Name:** The Wixbury Gazette
 - **Frequency:** Every 168 ticks (one simulated week = 168 real minutes)
-- **Model:** `claude-sonnet-4-20250514`
+- **Model:** `claude-sonnet-4-6`
 - **Voice:** Neutral, local, understated. A real small northern English town paper.
 - **Prompt contract:** Send a structured JSON payload of flagged events. The model returns
   formatted article text only. It must not invent events beyond the payload.
@@ -212,9 +212,11 @@ finish one completely before starting the other.
 
 ## What we are building right now
 
-**Current phase:** Phase 2 — World state: database and relationships
+**Current phase:** Phase 4 — Public website: read-only viewer
 
-Goal: persistent world with 15 citizens across 4 districts, relationship graph,
-and event log — all persisted to PostgreSQL with tick state in Redis.
+Phase 3 is complete. Deliverables: significance scorer, BullMQ newspaper job, biography updater,
+`NewspaperEdition` DB table, `AnthropicClient` with prompt caching, `MockLLMClient` for dev.
+
+Next: map renderer, citizen profiles, newspaper archive browser, WebSocket live feed, public API.
 
 See `Docs/city-sim-build-phases.md` for the full phase breakdown.

@@ -237,3 +237,6 @@ All founding decisions have been made. No open questions remain before Phase 1.
 | Commentary feed | Event-driven text sidebar; LLM only for significant moments |
 | Match result determination | Random until players are established (~1 sim season), then trait-driven |
 | Starting districts | Town centre, Millside, Harrowgate, The Works — confirmed |
+| Citizen work quota | Employed: `round(5 + ambition × 5)` hours/day (5–10h). Unemployed: 0h. Remaining hours = Leisure |
+| Energy decay rate | `ENERGY_DECAY_PER_TICK = 0.012` — produces ~17 awake ticks before sleep threshold |
+| Energy recovery rate | `ENERGY_RECOVERY_PER_TICK = 0.04` — produces ~7 sleep ticks to recover; natural 24h cycle |
