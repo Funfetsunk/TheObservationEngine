@@ -12,6 +12,7 @@ import {
   MIN_WORK_HOURS,
   MAX_WORK_HOURS,
 } from './constants';
+import { activePolicyEffects } from './policy-effects';
 import { getHomeLocation, JOB_WORK_LOCATION } from './world';
 
 export const FIRST_NAMES_MALE: ReadonlyArray<string> = [
@@ -133,9 +134,9 @@ export function createCitizen(
 }
 
 export function tickCitizen(citizen: Citizen): CitizenAction {
-  citizen.needs.hunger = clamp(citizen.needs.hunger - HUNGER_DECAY_PER_TICK);
+  citizen.needs.hunger = clamp(citizen.needs.hunger - HUNGER_DECAY_PER_TICK * activePolicyEffects.hungerDecayMultiplier);
   citizen.needs.energy = clamp(citizen.needs.energy - ENERGY_DECAY_PER_TICK);
-  citizen.needs.social = clamp(citizen.needs.social - SOCIAL_DECAY_PER_TICK);
+  citizen.needs.social = clamp(citizen.needs.social - SOCIAL_DECAY_PER_TICK * activePolicyEffects.socialDecayMultiplier);
 
   const action = pickAction(citizen);
   citizen.currentAction = action;

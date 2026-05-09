@@ -16,6 +16,7 @@ import {
 import { PendingEvent } from './event-emitter';
 import { scoreSignificance } from './significance-scorer';
 import { syncBusinessToDb } from './db-sync';
+import { activePolicyEffects } from './policy-effects';
 
 const BUSINESS_NAMES: Record<BusinessType, string[]> = {
   [BusinessType.Pub]: ['The Crown', 'The Red Lion', 'The Bull & Gate', 'The Swan', 'The White Hart', 'The Plough'],
@@ -58,7 +59,7 @@ export class EconomyEngine {
   tickWages(citizens: Citizen[]): void {
     for (const citizen of citizens) {
       if (citizen.currentAction === CitizenAction.Working) {
-        citizen.wealth += WAGE_PER_TICK[citizen.job] ?? 0;
+        citizen.wealth += (WAGE_PER_TICK[citizen.job] ?? 0) * activePolicyEffects.wageMultiplier;
       }
     }
   }

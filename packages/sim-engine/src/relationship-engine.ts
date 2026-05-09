@@ -204,6 +204,11 @@ export class RelationshipEngine {
     for (const r of dirty) r.dirty = false;
   }
 
+  getScore(aId: string, bId: string): number {
+    const key = makeKey(aId, bId);
+    return this.map.get(key)?.score ?? 0;
+  }
+
   getRomanticPairs(): Array<[string, string]> {
     return [...this.map.values()]
       .filter(r => r.type === RelationshipType.Romantic)

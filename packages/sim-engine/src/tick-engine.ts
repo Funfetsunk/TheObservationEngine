@@ -1,11 +1,12 @@
 import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { PrismaClient } from '@wixbury/db';
-import { Citizen, EventType } from '@wixbury/shared';
+import { Citizen, EventType, JobType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
 import { PopulationEngine } from './population-engine';
 import { EconomyEngine } from './economy-engine';
+import { PoliticalEngine, PoliticalFaction } from './political-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
 import { scoreSignificance } from './significance-scorer';
@@ -14,7 +15,9 @@ import {
   TICK_INTERVAL_MS,
   TICKS_PER_SIM_DAY,
   TICKS_PER_SIM_WEEK,
+  TICKS_PER_SIM_MONTH,
   TICKS_PER_SIM_YEAR,
+  ELECTION_INTERVAL_TICKS,
   JOB_CHANGE_CHECK_INTERVAL_TICKS,
   NEEDS_CRISIS_THRESHOLD,
   SIM_DAYS_TO_RUN,
@@ -51,6 +54,8 @@ export function startTickEngine(
   populationEngine: PopulationEngine,
   economyEngine: EconomyEngine,
   businesses: import('@wixbury/shared').Business[],
+  politicalEngine: PoliticalEngine,
+  factions: PoliticalFaction[],
 ): void {
   let tickNumber = initialTickNumber;
   let tickInProgress = false;
@@ -108,6 +113,22 @@ export function startTickEngine(
           economyEvents.push(...await economyEngine.checkJobChanges(citizens, tickNumber, prisma));
         }
 
+        const politicalEvents: PendingEvent[] = [];
+        const councillors = citizens.filter(c => c.job === JobType.Councillor);
+
+        if (tickNumber % TICKS_PER_SIM_WEEK === 0) {
+          politicalEvents.push(...await politicalEngine.checkFactionFormation(citizens, factions, tickNumber, prisma));
+          politicalEvents.push(...politicalEngine.checkCorruption(councillors, tickNumber));
+        }
+
+        if (tickNumber % TICKS_PER_SIM_MONTH === 0) {
+          politicalEvents.push(...await politicalEngine.proposePolicy(councillors, tickNumber, prisma));
+        }
+
+        if (tickNumber % ELECTION_INTERVAL_TICKS === 0 && tickNumber > 0) {
+          politicalEvents.push(...await politicalEngine.runElection(citizens, relationships, tickNumber, prisma));
+        }
+
         const allEvents: PendingEvent[] = [
           ...crisisEvents,
           ...relEvents,
@@ -115,6 +136,7 @@ export function startTickEngine(
           ...birthEvents,
           ...migrationEvents,
           ...economyEvents,
+          ...politicalEvents,
         ];
 
         await emitEvents(allEvents, prisma);

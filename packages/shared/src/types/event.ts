@@ -13,4 +13,8 @@ export enum EventType {
   Promotion = 'promotion',
   UnemploymentSpike = 'unemployment_spike',
   Strike = 'strike',
+  ElectionHeld = 'election',
+  PolicyPassed = 'policy_passed',
+  FactionFormed = 'faction_formed',
+  CorruptionAllegation = 'corruption_allegation',
 }

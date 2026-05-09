@@ -96,6 +96,40 @@ model Business {
   @@map("businesses")
 }
 
+model Election {
+  id           String   @id @default(uuid())
+  heldAt       Int
+  districtId   String?
+  candidateIds String[]
+  winnerId     String
+  voteData     Json
+
+  @@map("elections")
+}
+
+model Policy {
+  id          String  @id @default(uuid())
+  title       String
+  description String
+  proposedBy  String
+  passedAt    Int?
+  effect      Json
+  active      Boolean @default(false)
+
+  @@map("policies")
+}
+
+model Faction {
+  id        String   @id @default(uuid())
+  name      String
+  formedAt  Int
+  leaderIds String[]
+  memberIds String[]
+  agenda    Json
+
+  @@map("factions")
+}
+
 model NewspaperEdition {
   id        String   @id @default(uuid())
   editionAt Int

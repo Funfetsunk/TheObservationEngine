@@ -53,6 +53,16 @@ export const RELATIONSHIP_CAP = 50;
 export const RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD = 0.7;
 export const RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF = 0.2;
 
+// Political system (Phase 5 System 3)
+export const TICKS_PER_SIM_MONTH = TICKS_PER_SIM_DAY * 30;           // 720 ticks
+export const ELECTION_INTERVAL_TICKS = TICKS_PER_SIM_DAY * 365 * 4;  // 4 sim years
+export const COUNCIL_SEATS = 5;
+export const POLICY_VOTE_THRESHOLD = 3;
+export const FACTION_FORMATION_THRESHOLD = 5;
+export const FACTION_POLITICAL_SIMILARITY = 0.2;
+export const CANDIDATE_DECLARATION_PROBABILITY = 0.30;
+export const CORRUPTION_PROBABILITY_PER_WEEK = 0.05;
+
 // Economy engine (Phase 5 System 2)
 export const WAGE_PER_TICK: Record<string, number> = {
   unemployed:     0,

@@ -14,6 +14,7 @@ import { MockLLMClient } from './llm/mock-llm-client';
 import { MIN_WORK_HOURS, MAX_WORK_HOURS } from './constants';
 import { PopulationEngine } from './population-engine';
 import { EconomyEngine } from './economy-engine';
+import { PoliticalEngine, PoliticalFaction } from './political-engine';
 
 interface DbCitizenRow {
   id: string;
@@ -132,9 +133,25 @@ async function main(): Promise<void> {
     llm: useMock ? 'mock' : 'anthropic',
   }));
 
+  const dbFactions = await prisma.faction.findMany();
+  const factions: PoliticalFaction[] = dbFactions.map(f => ({
+    id: f.id,
+    name: f.name,
+    formedAt: f.formedAt,
+    leaderIds: f.leaderIds,
+    memberIds: f.memberIds,
+    agenda: f.agenda as PoliticalFaction['agenda'],
+  }));
+
+  const politicalEngine = new PoliticalEngine();
+  const activePolicies = await prisma.policy.findMany({ where: { active: true } });
+  politicalEngine.applyActivePolicies(
+    activePolicies.map(p => ({ effect: p.effect as { constant: 'hungerDecayMultiplier' | 'socialDecayMultiplier' | 'wageMultiplier'; delta: number } })),
+  );
+
   const populationEngine = new PopulationEngine();
   const economyEngine = new EconomyEngine();
-  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine, economyEngine, businesses);
+  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine, economyEngine, businesses, politicalEngine, factions);
 }
 
 main().catch((err: unknown) => {
