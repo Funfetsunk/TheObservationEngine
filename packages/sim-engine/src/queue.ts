@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from 'bullmq';
+import { Redis } from 'ioredis';
 import { PrismaClient } from '@wixbury/db';
 import { NewspaperJob } from './jobs/newspaper-job';
 import { LLMClient } from './llm/llm-client';
@@ -30,12 +31,14 @@ export function startWorker(
   prisma: PrismaClient,
   llmClient: LLMClient,
 ): Worker {
+  const redisPublisher = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
+
   const worker = new Worker(
     QUEUE_NAME,
     async (job: Job) => {
       if (job.name === 'generate_newspaper_edition') {
         const data = job.data as NewspaperEditionJobData;
-        const newspaperJob = new NewspaperJob(prisma, llmClient);
+        const newspaperJob = new NewspaperJob(prisma, llmClient, redisPublisher);
         await newspaperJob.run(data.weekStart, data.weekEnd, data.currentTick);
       }
     },

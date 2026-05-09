@@ -27,7 +27,7 @@ Paste this file into Claude Code sessions when working on affected subsystems.
 **Reason:** Event-driven, I/O-bound simulation is Node's natural domain. Same language across sim engine and frontend eliminates context switching. Async model is mature for long-running processes.  
 **Alternatives rejected:** Python (better for data science/ML, weaker async story for persistent processes)
 
-### [Hosting] Hetzner VPS + Coolify chosen over Railway
+### [Hosting] Hetzner VPS + Coolify chosen over Railway *(superseded — see Phase 4 decision below)*
 **Date:** Pre-build  
 **Decision:** Hetzner CX22 (~£4/mo) with Coolify for deployment management  
 **Reason:** Dramatic cost saving over Railway for a long-running always-on process. Railway suitable for early prototyping but Coolify/Hetzner is the target for Phase 4 launch.  
@@ -106,6 +106,14 @@ Paste this file into Claude Code sessions when working on affected subsystems.
 **Decision:** `scoreSignificance(type, involvedCitizens)` in `significance-scorer.ts` replaces hardcoded `significance: 0.3/0.4/0.5` literals in `relationship-engine.ts` and `tick-engine.ts`. Prominent jobs (Journalist, Councillor, Doctor) add +0.20; noteworthy jobs (Clergy, Teacher, Publican) add +0.10.
 **Reason:** RelationshipChanged + prominent citizen = 0.70 → newspaper eligible. Two labourers = 0.50 → not eligible. This produces newspaper content from Phase 2 events without lowering the 0.6 threshold.
 **Alternatives rejected:** Lowering SIGNIFICANCE_THRESHOLD (waters down the newspaper), hardcoding per-pair rules (not extensible)
+
+---
+
+### [Hosting] Oracle Cloud Always Free chosen over Hetzner CX22
+**Date:** 2026-05-09  
+**Decision:** Oracle Cloud Always Free ARM VM (4 OCPU / 24GB RAM) replaces Hetzner CX22 (~€4/mo) as the deployment target for sim-engine + Postgres + Redis. Coolify still used for deployment management.  
+**Reason:** Hetzner was never set up. Oracle Cloud Always Free tier provides genuinely free persistent hosting with significantly more resources (24GB RAM vs 4GB on CX22). No monthly cost means no ongoing commitment before the project has visitors.  
+**Alternatives rejected:** Hetzner CX22 (€4/mo — not free), Fly.io free tier (256MB/VM too tight for Node + Postgres + Redis), Render free tier (spins down — unsuitable for always-on sim engine)
 
 ---
 

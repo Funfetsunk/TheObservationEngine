@@ -50,7 +50,7 @@ Never import anything from `sim-engine` into `web`, or vice versa.
 | Frontend | Next.js 14, Tailwind CSS |
 | Real-time | WebSockets (ws library) |
 | LLM | Anthropic Claude API (claude-sonnet-4-6) |
-| Deployment | Hetzner CX22 + Coolify (sim engine + db), Vercel (web) |
+| Deployment | Oracle Cloud Always Free ARM VM + Coolify (sim engine + db), Vercel (web) |
 
 ---
 
@@ -202,7 +202,7 @@ finish one completely before starting the other.
 | What | When it costs | Trigger |
 |---|---|---|
 | Claude API | Phase 3+ | Every newspaper edition (1 call per 168 ticks) |
-| Hetzner CX22 | Phase 4+ deployment | ~€4/month for sim engine + DB server |
+| Oracle Cloud ARM VM | Phase 4+ deployment | Free (Oracle Always Free tier — 4 OCPU, 24GB RAM) |
 | Vercel | Phase 4+ deployment | Free tier likely sufficient for read-only frontend |
 
 **Phases 1–2 are entirely free** — local Node.js, Docker Postgres, Docker Redis, no API calls.

@@ -1,8 +1,10 @@
+import { Redis } from 'ioredis';
 import { PrismaClient } from '@wixbury/db';
 import { LLMClient } from '../llm/llm-client';
 import { BiographyUpdater } from './biography-updater';
 import { logError, logStructured } from '../logger';
 import { SIGNIFICANCE_THRESHOLD, MAX_BIO_UPDATES_PER_EDITION, BIO_UPDATE_SIGNIFICANCE_THRESHOLD } from '../constants';
+import { publishEdition } from '../tick-publisher';
 
 const GAZETTE_SYSTEM_PROMPT = `You are the editor of The Wixbury Gazette, a weekly local newspaper serving the small post-industrial town of Wixbury in northern England.
 
@@ -44,6 +46,7 @@ export class NewspaperJob {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly llm: LLMClient,
+    private readonly redis?: Redis,
   ) {
     this.bioUpdater = new BiographyUpdater(prisma, llm);
   }
@@ -93,7 +96,7 @@ export class NewspaperJob {
       return;
     }
 
-    await this.prisma.newspaperEdition.create({
+    const edition = await this.prisma.newspaperEdition.create({
       data: {
         editionAt: editionTick,
         weekStart,
@@ -101,6 +104,10 @@ export class NewspaperJob {
         content: response.content,
       },
     });
+
+    if (this.redis) {
+      await publishEdition(this.redis, edition.id, editionTick);
+    }
 
     await this.prisma.event.updateMany({
       where: { id: { in: events.map(e => e.id) } },

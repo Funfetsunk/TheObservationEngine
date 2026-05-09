@@ -77,12 +77,14 @@ async function main(): Promise<void> {
   });
 
   const apiKey = process.env['ANTHROPIC_API_KEY'];
-  const llmClient = apiKey ? new AnthropicClient(apiKey) : new MockLLMClient();
+  const mockForced = process.env['MOCK_LLM'] === 'true';
+  const useMock = mockForced || !apiKey;
+  const llmClient = useMock ? new MockLLMClient() : new AnthropicClient(apiKey!);
 
-  if (!apiKey) {
+  if (useMock) {
     console.log(JSON.stringify({
       event: 'llm_mock_mode',
-      reason: 'ANTHROPIC_API_KEY not set — newspaper will use mock LLM',
+      reason: mockForced ? 'MOCK_LLM=true' : 'ANTHROPIC_API_KEY not set',
     }));
   }
 
@@ -111,7 +113,7 @@ async function main(): Promise<void> {
     citizens: citizens.length,
     tick: tickState.tickNumber,
     relationships: relationships.getCount(),
-    llm: apiKey ? 'anthropic' : 'mock',
+    llm: useMock ? 'mock' : 'anthropic',
   }));
 
   startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber);

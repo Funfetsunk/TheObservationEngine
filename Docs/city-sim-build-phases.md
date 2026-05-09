@@ -76,7 +76,7 @@ A persistent online city simulation that runs autonomously, generating emergent 
 
 **Deliverable:** A live website a stranger can visit, explore the map, read the newspaper, and follow citizens.
 
-**Stack:** Next.js, Tailwind, WebSockets, Vercel / Railway
+**Stack:** Next.js, Tailwind, WebSockets, Vercel (web) / Oracle Cloud Always Free (sim engine + db)
 
 ---
 

@@ -7,6 +7,7 @@ import { RelationshipEngine } from './relationship-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
 import { scoreSignificance } from './significance-scorer';
+import { publishTick, publishSignificantEvents } from './tick-publisher';
 import {
   TICK_INTERVAL_MS,
   TICKS_PER_SIM_DAY,
@@ -61,6 +62,10 @@ export function startTickEngine(
         await relationships.syncDirty(prisma);
         await emitEvents(allEvents, prisma);
         await saveTickState(redis, tickNumber);
+
+        const citizenMap = new Map(citizens.map(c => [c.id, c.name]));
+        await publishTick(redis, tickNumber, citizens);
+        await publishSignificantEvents(redis, allEvents, citizenMap);
 
         if (tickNumber % NEWSPAPER_EDITION_INTERVAL_TICKS === 0) {
           const editionNumber = Math.floor(tickNumber / NEWSPAPER_EDITION_INTERVAL_TICKS);

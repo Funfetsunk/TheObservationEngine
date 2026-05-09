@@ -1,0 +1,32 @@
+{
+  "name": "@wixbury/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "ts-node server.ts",
+    "build": "next build",
+    "start": "NODE_ENV=production ts-node server.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wixbury/db": "*",
+    "@wixbury/shared": "*",
+    "dotenv": "^16.6.1",
+    "ioredis": "^5.3.2",
+    "next": "^16.2.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.5.10",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
