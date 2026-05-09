@@ -78,10 +78,35 @@ export interface DistrictSummary {
   name: string;
   character: string;
   citizenCount: number;
+  wealthScore: number;
 }
 
 export interface DistrictsResponse {
   districts: DistrictSummary[];
+}
+
+export interface BuildingSummary {
+  id: string;
+  name: string;
+  type: string;
+  districtId: string;
+  districtName: string;
+  builtAt: number;
+  capacity: number;
+}
+
+export interface BuildingsResponse {
+  buildings: BuildingSummary[];
+}
+
+export interface DistrictDetailResponse {
+  id: string;
+  name: string;
+  character: string;
+  wealthScore: number;
+  populationScore: number;
+  citizenCount: number;
+  buildings: BuildingSummary[];
 }
 
 export interface EditionSummary {

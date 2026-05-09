@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
 import { getPrismaClient } from '@wixbury/db';
 import { Redis } from 'ioredis';
-import { Business, BusinessType, Citizen, CitizenAction, JobType } from '@wixbury/shared';
+import { Building, BuildingType, Business, BusinessType, Citizen, CitizenAction, JobType } from '@wixbury/shared';
 import { seed } from './seed';
 import { loadTickState } from './db-sync';
 import { RelationshipEngine } from './relationship-engine';
@@ -15,6 +15,7 @@ import { MIN_WORK_HOURS, MAX_WORK_HOURS } from './constants';
 import { PopulationEngine } from './population-engine';
 import { EconomyEngine } from './economy-engine';
 import { PoliticalEngine, PoliticalFaction } from './political-engine';
+import { DistrictEngine, RuntimeDistrict } from './district-engine';
 
 interface DbCitizenRow {
   id: string;
@@ -149,9 +150,30 @@ async function main(): Promise<void> {
     activePolicies.map(p => ({ effect: p.effect as { constant: 'hungerDecayMultiplier' | 'socialDecayMultiplier' | 'wageMultiplier'; delta: number } })),
   );
 
+  const dbDistricts = await prisma.district.findMany();
+  const districts: RuntimeDistrict[] = dbDistricts.map(d => ({
+    id: d.id,
+    name: d.name,
+    character: d.character,
+    wealthScore: d.wealthScore,
+    populationScore: d.populationScore,
+  }));
+
+  const dbBuildings = await prisma.building.findMany({ where: { demolishedAt: null } });
+  const buildings: Building[] = dbBuildings.map(b => ({
+    id: b.id,
+    name: b.name,
+    type: b.type as BuildingType,
+    districtId: b.districtId,
+    builtAt: b.builtAt,
+    demolishedAt: b.demolishedAt,
+    capacity: b.capacity,
+  }));
+
   const populationEngine = new PopulationEngine();
   const economyEngine = new EconomyEngine();
-  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine, economyEngine, businesses, politicalEngine, factions);
+  const districtEngine = new DistrictEngine();
+  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine, economyEngine, businesses, politicalEngine, factions, districtEngine, districts, buildings);
 }
 
 main().catch((err: unknown) => {

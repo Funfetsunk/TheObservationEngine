@@ -1,10 +1,10 @@
 import { District, DistrictId, JobType, LocationId } from '@wixbury/shared';
 
 export const DISTRICT_RECORDS: ReadonlyArray<District> = [
-  { id: DistrictId.TownCentre, name: 'Town Centre', character: 'Commercial and civic heart' },
-  { id: DistrictId.Millside, name: 'Millside', character: 'Working-class residential' },
-  { id: DistrictId.Harrowgate, name: 'Harrowgate', character: 'Slightly more affluent residential' },
-  { id: DistrictId.TheWorks, name: 'The Works', character: 'Light industry and leisure' },
+  { id: DistrictId.TownCentre, name: 'Town Centre', character: 'Commercial and civic heart',           wealthScore: 0.5, populationScore: 0.5 },
+  { id: DistrictId.Millside,   name: 'Millside',    character: 'Working-class residential',            wealthScore: 0.3, populationScore: 0.5 },
+  { id: DistrictId.Harrowgate, name: 'Harrowgate',  character: 'Slightly more affluent residential',  wealthScore: 0.6, populationScore: 0.5 },
+  { id: DistrictId.TheWorks,   name: 'The Works',   character: 'Light industry and leisure',           wealthScore: 0.3, populationScore: 0.5 },
 ];
 
 export const DISTRICT_HOME_LOCATION: Readonly<Record<DistrictId, LocationId>> = {

@@ -4,10 +4,19 @@ interface DistrictInfo {
   id: string;
   name: string;
   citizenCount: number;
+  wealthScore?: number;
 }
 
 interface DistrictLayerProps {
   districts: DistrictInfo[];
+}
+
+function wealthFill(wealthScore: number): string {
+  if (wealthScore < 0.2) return '#3b1a0a';
+  if (wealthScore < 0.4) return '#4a2c10';
+  if (wealthScore < 0.6) return '#3d3d15';
+  if (wealthScore < 0.8) return '#1e3a20';
+  return '#1a3a2a';
 }
 
 export function DistrictLayer({ districts }: DistrictLayerProps): React.ReactElement {
@@ -19,6 +28,7 @@ export function DistrictLayer({ districts }: DistrictLayerProps): React.ReactEle
         const info = districtMap.get(layout.id);
         const name = info?.name ?? layout.id;
         const count = info?.citizenCount ?? 0;
+        const fill = info?.wealthScore !== undefined ? wealthFill(info.wealthScore) : layout.fill;
 
         return (
           <g key={layout.id}>
@@ -27,7 +37,7 @@ export function DistrictLayer({ districts }: DistrictLayerProps): React.ReactEle
               y={layout.y}
               width={layout.width}
               height={layout.height}
-              fill={layout.fill}
+              fill={fill}
               stroke={layout.stroke}
               strokeWidth={1}
               rx={4}

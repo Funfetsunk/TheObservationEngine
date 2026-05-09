@@ -23,4 +23,6 @@ export interface District {
   id: DistrictId;
   name: string;
   character: string;
+  wealthScore: number;
+  populationScore: number;
 }

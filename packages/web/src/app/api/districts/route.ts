@@ -15,6 +15,7 @@ export async function GET(): Promise<NextResponse<DistrictsResponse>> {
     name: d.name,
     character: d.character,
     citizenCount: d._count.citizens,
+    wealthScore: d.wealthScore,
   }));
 
   return NextResponse.json({ districts });

@@ -30,7 +30,7 @@ export async function seed(prisma: PrismaClient): Promise<void> {
   console.log(JSON.stringify({ event: 'seed_start' }));
 
   for (const d of DISTRICT_RECORDS) {
-    await prisma.district.create({ data: { id: d.id, name: d.name, character: d.character } });
+    await prisma.district.create({ data: { id: d.id, name: d.name, character: d.character, wealthScore: d.wealthScore, populationScore: d.populationScore } });
   }
 
   for (const spec of SEED_SPECS) {

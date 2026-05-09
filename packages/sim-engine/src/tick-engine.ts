@@ -1,12 +1,13 @@
 import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { PrismaClient } from '@wixbury/db';
-import { Citizen, EventType, JobType } from '@wixbury/shared';
+import { Building, Citizen, EventType, JobType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
 import { PopulationEngine } from './population-engine';
 import { EconomyEngine } from './economy-engine';
 import { PoliticalEngine, PoliticalFaction } from './political-engine';
+import { DistrictEngine, RuntimeDistrict } from './district-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
 import { scoreSignificance } from './significance-scorer';
@@ -56,6 +57,9 @@ export function startTickEngine(
   businesses: import('@wixbury/shared').Business[],
   politicalEngine: PoliticalEngine,
   factions: PoliticalFaction[],
+  districtEngine: DistrictEngine,
+  districts: RuntimeDistrict[],
+  buildings: Building[],
 ): void {
   let tickNumber = initialTickNumber;
   let tickInProgress = false;
@@ -129,6 +133,13 @@ export function startTickEngine(
           politicalEvents.push(...await politicalEngine.runElection(citizens, relationships, tickNumber, prisma));
         }
 
+        const districtEvents: PendingEvent[] = [];
+        if (tickNumber % TICKS_PER_SIM_YEAR === 0 && tickNumber > 0) {
+          districtEvents.push(...await districtEngine.tickWealthDrift(districts, citizens, tickNumber, prisma));
+          districtEvents.push(...await districtEngine.checkConstruction(districts, citizens, buildings, tickNumber, prisma));
+          districtEvents.push(...await districtEngine.checkDemolition(buildings, tickNumber, prisma));
+        }
+
         const allEvents: PendingEvent[] = [
           ...crisisEvents,
           ...relEvents,
@@ -137,6 +148,7 @@ export function startTickEngine(
           ...migrationEvents,
           ...economyEvents,
           ...politicalEvents,
+          ...districtEvents,
         ];
 
         await emitEvents(allEvents, prisma);

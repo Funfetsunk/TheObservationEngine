@@ -11,6 +11,7 @@ interface DistrictInfo {
   id: string;
   name: string;
   citizenCount: number;
+  wealthScore?: number;
 }
 
 interface CityMapProps {

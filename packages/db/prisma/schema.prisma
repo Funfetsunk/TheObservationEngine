@@ -8,12 +8,15 @@ datasource db {
 }
 
 model District {
-  id         String     @id
-  name       String
-  character  String
-  citizens   Citizen[]
-  events     Event[]
-  businesses Business[]
+  id              String     @id
+  name            String
+  character       String
+  wealthScore     Float      @default(0.5)
+  populationScore Float      @default(0.5)
+  citizens        Citizen[]
+  events          Event[]
+  businesses      Business[]
+  buildings       Building[]
 
   @@map("districts")
 }
@@ -94,6 +97,19 @@ model Business {
   employeeIds String[]
 
   @@map("businesses")
+}
+
+model Building {
+  id           String   @id @default(uuid())
+  name         String
+  type         String
+  districtId   String
+  district     District @relation(fields: [districtId], references: [id])
+  builtAt      Int
+  demolishedAt Int?
+  capacity     Int
+
+  @@map("buildings")
 }
 
 model Election {

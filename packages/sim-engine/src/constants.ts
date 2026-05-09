@@ -53,6 +53,15 @@ export const RELATIONSHIP_CAP = 50;
 export const RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD = 0.7;
 export const RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF = 0.2;
 
+// District evolution (Phase 5 System 4)
+export const DISTRICT_WEALTH_DRIFT_RATE = 0.30;          // lerp factor per year toward target wealthScore
+export const DISTRICT_WEALTH_NORMALIZATION_CAP = 5000;   // wealth value that maps to wealthScore = 1.0
+export const BUILDING_CONSTRUCTION_INTERVAL_TICKS = TICKS_PER_SIM_DAY * 365;
+export const BUILDING_CONSTRUCTION_WEALTH_COST = 1000;
+export const BUILDING_CONSTRUCTION_PROBABILITY = 0.30;
+export const BUILDING_DEMOLITION_PROBABILITY = 0.02;
+export const BUILDING_MIN_AGE_FOR_DEMOLITION_TICKS = TICKS_PER_SIM_DAY * 365 * 3; // 3 sim years
+
 // Political system (Phase 5 System 3)
 export const TICKS_PER_SIM_MONTH = TICKS_PER_SIM_DAY * 30;           // 720 ticks
 export const ELECTION_INTERVAL_TICKS = TICKS_PER_SIM_DAY * 365 * 4;  // 4 sim years

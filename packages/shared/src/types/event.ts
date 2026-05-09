@@ -17,4 +17,7 @@ export enum EventType {
   PolicyPassed = 'policy_passed',
   FactionFormed = 'faction_formed',
   CorruptionAllegation = 'corruption_allegation',
+  BuildingConstructed = 'building_constructed',
+  BuildingDemolished = 'building_demolished',
+  DistrictEvolved = 'district_evolved',
 }

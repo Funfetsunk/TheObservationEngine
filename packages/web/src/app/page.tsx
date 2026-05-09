@@ -44,6 +44,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
     id: d.id,
     name: d.name,
     citizenCount: d._count.citizens,
+    wealthScore: d.wealthScore,
   }));
 
   return (
