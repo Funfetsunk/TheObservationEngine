@@ -45,8 +45,11 @@ export function startTickEngine(
   initialTickNumber: number,
 ): void {
   let tickNumber = initialTickNumber;
+  let tickInProgress = false;
 
   const interval = setInterval(() => {
+    if (tickInProgress) return;
+    tickInProgress = true;
     void (async () => {
       tickNumber++;
       try {
@@ -106,6 +109,8 @@ export function startTickEngine(
           tick: tickNumber,
           error: err instanceof Error ? err.message : String(err),
         }));
+      } finally {
+        tickInProgress = false;
       }
     })();
   }, TICK_INTERVAL_MS);

@@ -20,6 +20,7 @@ export interface WsEventMessage {
   districtId: string | null;
   citizenIds: string[];
   citizenNames: string[];
+  simulatedAt: string;
 }
 
 export interface WsEditionMessage {

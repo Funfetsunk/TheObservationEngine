@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Redis } from 'ioredis';
 import { Citizen } from '@wixbury/shared';
 import { SIGNIFICANCE_THRESHOLD, NEWSPAPER_EDITION_INTERVAL_TICKS } from './constants';
+import { LOCATION_DISTRICT } from './world';
 import type { PendingEvent } from './event-emitter';
 
 const FOUNDING_EPOCH_MS = new Date('1991-01-01T00:00:00Z').getTime();
@@ -41,6 +42,7 @@ export interface EventMessage {
   districtId: string | null;
   citizenIds: string[];
   citizenNames: string[];
+  simulatedAt: string;
 }
 
 export interface EditionMessage {
@@ -57,10 +59,11 @@ export async function publishTick(redis: Redis, tick: number, citizens: Citizen[
     simulatedAt: tickToISO(tick),
     citizens: citizens.map(c => {
       const pos = getDistrictPosition(c.id);
+      const districtId = LOCATION_DISTRICT[c.currentLocationId as keyof typeof LOCATION_DISTRICT] ?? c.homeDistrictId;
       return {
         id: c.id,
         name: c.name,
-        districtId: c.homeDistrictId,
+        districtId,
         activity: c.currentAction,
         positionX: pos.x,
         positionY: pos.y,
@@ -85,6 +88,7 @@ export async function publishSignificantEvents(
       districtId: e.districtId ?? null,
       citizenIds: e.citizenIds,
       citizenNames: e.citizenIds.map(id => citizenMap.get(id) ?? id),
+      simulatedAt: tickToISO(e.occurredAt),
     };
     await redis.publish('wixbury:event', JSON.stringify(message));
   }

@@ -29,6 +29,7 @@ export function useCityState(initialCitizens: CitizenSnapshot[]): CityState {
     if (!lastMessage) return;
 
     if (lastMessage.type === 'tick') {
+      if (lastMessage.tick <= tick && tickReceived.current) return;
       tickReceived.current = true;
       setTick(lastMessage.tick);
       setSimulatedAt(lastMessage.simulatedAt);

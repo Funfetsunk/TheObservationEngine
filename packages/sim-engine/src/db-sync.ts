@@ -19,7 +19,7 @@ export async function saveTickState(redis: Redis, tickNumber: number): Promise<v
 }
 
 export async function syncCitizensToDb(citizens: Citizen[], prisma: PrismaClient): Promise<void> {
-  await prisma.$transaction(
+  await Promise.all(
     citizens.map(c =>
       prisma.citizen.update({
         where: { id: c.id },

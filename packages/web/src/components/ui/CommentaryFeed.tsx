@@ -24,20 +24,18 @@ function formatEventLine(event: WsEventMessage): string {
   }
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  });
+function formatTime(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
 interface CommentaryFeedProps {
   events: WsEventMessage[];
-  simulatedAt: string;
 }
 
-export function CommentaryFeed({ events, simulatedAt }: CommentaryFeedProps): React.ReactElement {
+export function CommentaryFeed({ events }: CommentaryFeedProps): React.ReactElement {
   const visible = events.slice(-MAX_LINES).reverse();
 
   return (
@@ -53,7 +51,7 @@ export function CommentaryFeed({ events, simulatedAt }: CommentaryFeedProps): Re
               className={`text-xs px-2 py-1.5 rounded ${i === 0 ? 'bg-gray-800 text-gray-200' : 'text-gray-500'}`}
             >
               <span className="block">{formatEventLine(e)}</span>
-              <span className="text-gray-600 mt-0.5 block">{formatTime(simulatedAt)}</span>
+              <span className="text-gray-600 mt-0.5 block">{formatTime(e.simulatedAt)}</span>
             </li>
           ))}
         </ul>
