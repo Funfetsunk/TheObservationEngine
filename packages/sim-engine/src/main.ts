@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
 import { getPrismaClient } from '@wixbury/db';
 import { Redis } from 'ioredis';
-import { Citizen, CitizenAction, JobType } from '@wixbury/shared';
+import { Business, BusinessType, Citizen, CitizenAction, JobType } from '@wixbury/shared';
 import { seed } from './seed';
 import { loadTickState } from './db-sync';
 import { RelationshipEngine } from './relationship-engine';
@@ -13,6 +13,7 @@ import { AnthropicClient } from './llm/anthropic-client';
 import { MockLLMClient } from './llm/mock-llm-client';
 import { MIN_WORK_HOURS, MAX_WORK_HOURS } from './constants';
 import { PopulationEngine } from './population-engine';
+import { EconomyEngine } from './economy-engine';
 
 interface DbCitizenRow {
   id: string;
@@ -26,6 +27,7 @@ interface DbCitizenRow {
   needEnergy: number;
   needSocial: number;
   workedTodayTicks: number;
+  wealth: number;
   traitAmbition: number;
   traitHonesty: number;
   traitSociability: number;
@@ -65,6 +67,7 @@ function dbRowToCitizen(row: DbCitizenRow): Citizen {
     currentAction: row.currentAction as CitizenAction,
     dailyWorkTarget,
     workedTodayTicks: row.workedTodayTicks,
+    wealth: row.wealth,
   };
 }
 
@@ -104,6 +107,18 @@ async function main(): Promise<void> {
   const dbCitizens = await prisma.citizen.findMany({ where: { diedAt: null } });
   const citizens: Citizen[] = dbCitizens.map(row => dbRowToCitizen(row as DbCitizenRow));
 
+  const dbBusinesses = await prisma.business.findMany({ where: { closedAt: null } });
+  const businesses: Business[] = dbBusinesses.map(b => ({
+    id: b.id,
+    name: b.name,
+    type: b.type as BusinessType,
+    districtId: b.districtId,
+    ownerId: b.ownerId,
+    openedAt: b.openedAt,
+    closedAt: b.closedAt,
+    employeeIds: b.employeeIds,
+  }));
+
   const tickState = await loadTickState(redis);
 
   const relationships = new RelationshipEngine();
@@ -118,7 +133,8 @@ async function main(): Promise<void> {
   }));
 
   const populationEngine = new PopulationEngine();
-  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine);
+  const economyEngine = new EconomyEngine();
+  startTickEngine(citizens, relationships, prisma, redis, queue, tickState.tickNumber, populationEngine, economyEngine, businesses);
 }
 
 main().catch((err: unknown) => {

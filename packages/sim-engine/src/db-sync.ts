@@ -34,8 +34,20 @@ export async function syncCitizensToDb(citizens: Citizen[], prisma: PrismaClient
           currentAction: c.currentAction,
           currentLocationId: c.currentLocationId,
           workedTodayTicks: c.workedTodayTicks,
+          wealth: c.wealth,
+          jobType: c.job,
         },
       }),
     ),
   );
+}
+
+export async function syncBusinessToDb(
+  business: { id: string; closedAt: number | null; employeeIds: string[] },
+  prisma: PrismaClient,
+): Promise<void> {
+  await prisma.business.update({
+    where: { id: business.id },
+    data: { closedAt: business.closedAt, employeeIds: business.employeeIds },
+  });
 }

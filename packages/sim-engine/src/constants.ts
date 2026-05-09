@@ -53,6 +53,30 @@ export const RELATIONSHIP_CAP = 50;
 export const RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD = 0.7;
 export const RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF = 0.2;
 
+// Economy engine (Phase 5 System 2)
+export const WAGE_PER_TICK: Record<string, number> = {
+  unemployed:     0,
+  labourer:       2,
+  factory_worker: 2,
+  shopkeeper:     3,
+  teacher:        4,
+  publican:       3,
+  footballer:     5,
+  doctor:         7,
+  journalist:     4,
+  clergy:         2,
+  councillor:     5,
+};
+export const BUSINESS_OPEN_WEALTH_THRESHOLD = 500;
+export const BUSINESS_OPEN_PROBABILITY_PER_WEEK = 0.05;
+export const BUSINESS_FAIL_PROBABILITY_PER_WEEK = 0.02;
+export const JOB_CHANGE_WEALTH_THRESHOLD = 200;
+export const JOB_CHANGE_CHECK_INTERVAL_TICKS = TICKS_PER_SIM_WEEK * 4;
+export const JOB_PROMOTION_PROBABILITY = 0.10;
+export const JOB_SEEK_PROBABILITY = 0.25;
+export const UNEMPLOYMENT_SPIKE_THRESHOLD = 0.20;
+export const STRIKE_THRESHOLD = 0.30;
+
 // Population dynamics (Phase 5 System 1)
 export const TICKS_PER_SIM_YEAR = TICKS_PER_SIM_DAY * 365;   // 8760 ticks ≈ 6 real days
 export const CITIZEN_MIN_DEATH_AGE = 60;

@@ -22,6 +22,11 @@ const BASE_SIGNIFICANCE: Record<EventType, number> = {
   [EventType.CitizenBorn]: 0.70,
   [EventType.CitizenDied]: 0.80,
   [EventType.CitizenMigrated]: 0.30,
+  [EventType.BusinessOpened]: 0.65,
+  [EventType.BusinessClosed]: 0.70,
+  [EventType.Promotion]: 0.55,
+  [EventType.UnemploymentSpike]: 0.80,
+  [EventType.Strike]: 0.85,
 };
 
 export function scoreSignificance(

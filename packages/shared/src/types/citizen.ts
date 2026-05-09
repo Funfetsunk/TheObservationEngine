@@ -48,4 +48,5 @@ export interface Citizen {
   currentAction: CitizenAction;
   dailyWorkTarget: number;
   workedTodayTicks: number;
+  wealth: number;
 }

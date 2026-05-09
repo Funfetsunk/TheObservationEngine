@@ -5,6 +5,7 @@ import { Citizen, EventType } from '@wixbury/shared';
 import { tickCitizen } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
 import { PopulationEngine } from './population-engine';
+import { EconomyEngine } from './economy-engine';
 import { emitEvents, PendingEvent } from './event-emitter';
 import { syncCitizensToDb, saveTickState } from './db-sync';
 import { scoreSignificance } from './significance-scorer';
@@ -12,7 +13,9 @@ import { publishTick, publishSignificantEvents } from './tick-publisher';
 import {
   TICK_INTERVAL_MS,
   TICKS_PER_SIM_DAY,
+  TICKS_PER_SIM_WEEK,
   TICKS_PER_SIM_YEAR,
+  JOB_CHANGE_CHECK_INTERVAL_TICKS,
   NEEDS_CRISIS_THRESHOLD,
   SIM_DAYS_TO_RUN,
   NEWSPAPER_EDITION_INTERVAL_TICKS,
@@ -46,6 +49,8 @@ export function startTickEngine(
   queue: Queue,
   initialTickNumber: number,
   populationEngine: PopulationEngine,
+  economyEngine: EconomyEngine,
+  businesses: import('@wixbury/shared').Business[],
 ): void {
   let tickNumber = initialTickNumber;
   let tickInProgress = false;
@@ -59,6 +64,8 @@ export function startTickEngine(
         for (const citizen of citizens) {
           tickCitizen(citizen);
         }
+
+        economyEngine.tickWages(citizens);
 
         const crisisEvents = collectCrisisEvents(citizens, tickNumber);
         const relEvents = relationships.processColocations(citizens, tickNumber);
@@ -89,12 +96,25 @@ export function startTickEngine(
           }
         }
 
+        const economyEvents: PendingEvent[] = [];
+        economyEvents.push(...economyEngine.checkUnemploymentSpike(citizens, tickNumber));
+
+        if (tickNumber % TICKS_PER_SIM_WEEK === 0) {
+          economyEvents.push(...await economyEngine.checkBusinessOpportunities(citizens, businesses, tickNumber, prisma));
+          economyEvents.push(...await economyEngine.checkBusinessFailures(citizens, businesses, tickNumber, prisma));
+        }
+
+        if (tickNumber % JOB_CHANGE_CHECK_INTERVAL_TICKS === 0) {
+          economyEvents.push(...await economyEngine.checkJobChanges(citizens, tickNumber, prisma));
+        }
+
         const allEvents: PendingEvent[] = [
           ...crisisEvents,
           ...relEvents,
           ...deathEvents,
           ...birthEvents,
           ...migrationEvents,
+          ...economyEvents,
         ];
 
         await emitEvents(allEvents, prisma);

@@ -128,6 +128,7 @@ export function createCitizen(
     currentAction: initialAction,
     dailyWorkTarget,
     workedTodayTicks: 0,
+    wealth: 0,
   };
 }
 

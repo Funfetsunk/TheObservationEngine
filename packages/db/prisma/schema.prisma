@@ -8,11 +8,12 @@ datasource db {
 }
 
 model District {
-  id        String    @id
-  name      String
-  character String
-  citizens  Citizen[]
-  events    Event[]
+  id         String     @id
+  name       String
+  character  String
+  citizens   Citizen[]
+  events     Event[]
+  businesses Business[]
 
   @@map("districts")
 }
@@ -42,7 +43,8 @@ model Citizen {
 
   currentAction     String
   currentLocationId String
-  workedTodayTicks  Int @default(0)
+  workedTodayTicks  Int   @default(0)
+  wealth            Float @default(0)
 
   relationshipsAsA Relationship[] @relation("RelCitizenA")
   relationshipsAsB Relationship[] @relation("RelCitizenB")
@@ -78,6 +80,20 @@ model Event {
   writtenUp    Boolean   @default(false)
 
   @@map("events")
+}
+
+model Business {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  districtId  String
+  district    District @relation(fields: [districtId], references: [id])
+  ownerId     String?
+  openedAt    Int
+  closedAt    Int?
+  employeeIds String[]
+
+  @@map("businesses")
 }
 
 model NewspaperEdition {

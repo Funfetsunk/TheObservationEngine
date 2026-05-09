@@ -8,4 +8,9 @@ export enum EventType {
   CitizenBorn = 'citizen_born',
   CitizenDied = 'citizen_died',
   CitizenMigrated = 'citizen_migrated',
+  BusinessOpened = 'business_opened',
+  BusinessClosed = 'business_closed',
+  Promotion = 'promotion',
+  UnemploymentSpike = 'unemployment_spike',
+  Strike = 'strike',
 }
