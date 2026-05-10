@@ -9,6 +9,7 @@ import {
   JOB_SEEK_PROBABILITY,
   MIN_WORK_HOURS,
   MAX_WORK_HOURS,
+  MIN_WORKING_AGE,
   STRIKE_THRESHOLD,
   UNEMPLOYMENT_SPIKE_THRESHOLD,
   WAGE_PER_TICK,
@@ -78,7 +79,7 @@ export class EconomyEngine {
     for (const citizen of citizens) {
       if (openBusinessOwners.has(citizen.id)) continue;
       if (citizen.wealth < BUSINESS_OPEN_WEALTH_THRESHOLD) continue;
-      if (citizen.traits.ambition <= 0.7) continue;
+      if (citizen.traits.ambition <= 0.55) continue;
       if (Math.random() >= BUSINESS_OPEN_PROBABILITY_PER_WEEK) continue;
 
       const businessType = JOB_BUSINESS_TYPE[citizen.job] ?? BusinessType.Shop;
@@ -184,6 +185,8 @@ export class EconomyEngine {
     const events: PendingEvent[] = [];
 
     for (const citizen of citizens) {
+      if (citizen.age < MIN_WORKING_AGE) continue;
+
       if (citizen.job === JobType.Unemployed) {
         if (Math.random() < JOB_SEEK_PROBABILITY) {
           const entryJobs = [JobType.Labourer, JobType.FactoryWorker, JobType.Shopkeeper];
