@@ -32,6 +32,7 @@ export const LOCATION_DISTRICT: Readonly<Record<LocationId, DistrictId>> = {
   [LocationId.TownHall]: DistrictId.TownCentre,
   [LocationId.WixburyGazette]: DistrictId.TownCentre,
   [LocationId.TownMarket]: DistrictId.TownCentre,
+  [LocationId.WixburySchool]: DistrictId.TownCentre,
   [LocationId.MinersRest]: DistrictId.Millside,
   [LocationId.MillsideHomes]: DistrictId.Millside,
   [LocationId.MillsideCommunitySpace]: DistrictId.Millside,

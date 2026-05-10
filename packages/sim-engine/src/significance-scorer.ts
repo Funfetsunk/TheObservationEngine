@@ -34,6 +34,8 @@ const BASE_SIGNIFICANCE: Record<EventType, number> = {
   [EventType.Promotion]: 0.55,
   [EventType.UnemploymentSpike]: 0.80,
   [EventType.Strike]: 0.85,
+  [EventType.YearClosed]: 0.50,
+  [EventType.CitizenGraduated]: 0.35,
 };
 
 export function scoreSignificance(
@@ -47,6 +49,12 @@ export function scoreSignificance(
       prominenceBoost = Math.max(prominenceBoost, 0.20);
     } else if (NOTEWORTHY_JOBS.has(citizen.job)) {
       prominenceBoost = Math.max(prominenceBoost, 0.10);
+    }
+  }
+  if (type === EventType.CitizenGraduated) {
+    const graduate = involvedCitizens[0];
+    if (graduate && graduate.traits.ambition > 0.85) {
+      prominenceBoost = Math.max(prominenceBoost, 0.20);
     }
   }
   return Math.min(1.0, base + prominenceBoost);

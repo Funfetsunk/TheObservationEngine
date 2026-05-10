@@ -20,4 +20,6 @@ export enum EventType {
   BuildingConstructed = 'building_constructed',
   BuildingDemolished = 'building_demolished',
   DistrictEvolved = 'district_evolved',
+  YearClosed = 'year_closed',
+  CitizenGraduated = 'citizen_graduated',
 }

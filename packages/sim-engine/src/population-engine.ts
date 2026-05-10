@@ -6,6 +6,7 @@ import {
   CITIZEN_MIN_DEATH_AGE,
   CRISIS_DEATH_CONSECUTIVE_TICKS,
   MIGRATION_PROBABILITY_PER_TICK,
+  MIN_WORKING_AGE,
   NEEDS_CRISIS_THRESHOLD,
   TICKS_PER_SIM_YEAR,
 } from './constants';
@@ -43,6 +44,8 @@ async function insertCitizenToDb(citizen: Citizen, bornAt: number, prisma: Prism
       currentAction: citizen.currentAction,
       currentLocationId: citizen.currentLocationId,
       workedTodayTicks: 0,
+      parentAId: citizen.parentAId,
+      parentBId: citizen.parentBId,
     },
   });
 }
@@ -50,11 +53,28 @@ async function insertCitizenToDb(citizen: Citizen, bornAt: number, prisma: Prism
 export class PopulationEngine {
   private readonly crisisStreaks = new Map<string, number>();
 
-  async tickAgeing(citizens: Citizen[], tickNumber: number, prisma: PrismaClient): Promise<void> {
+  async tickAgeing(citizens: Citizen[], tickNumber: number, prisma: PrismaClient): Promise<PendingEvent[]> {
+    const events: PendingEvent[] = [];
     for (const citizen of citizens) {
       citizen.age++;
+      if (citizen.age === MIN_WORKING_AGE) {
+        citizen.job = JobType.Unemployed;
+        citizen.dailyWorkTarget = 0;
+        await prisma.citizen.update({
+          where: { id: citizen.id },
+          data: { jobType: JobType.Unemployed },
+        });
+        events.push({
+          type: EventType.CitizenGraduated,
+          occurredAt: tickNumber,
+          citizenIds: [citizen.id],
+          data: { citizenName: citizen.name, age: citizen.age },
+          significance: scoreSignificance(EventType.CitizenGraduated, [citizen]),
+        });
+      }
     }
     await Promise.all(citizens.map(c => syncCitizenAge(c.id, c.age, prisma)));
+    return events;
   }
 
   checkNaturalDeaths(citizens: readonly Citizen[], tickNumber: number): PendingEvent[] {
@@ -142,6 +162,8 @@ export class PopulationEngine {
       const newborn = createCitizen(parentA.homeDistrictId as DistrictId, JobType.Unemployed);
       newborn.age = 0;
       newborn.dailyWorkTarget = 0;
+      newborn.parentAId = aId;
+      newborn.parentBId = bId;
       newborn.traits = {
         ambition: inheritTrait(parentA.traits.ambition, parentB.traits.ambition),
         honesty: inheritTrait(parentA.traits.honesty, parentB.traits.honesty),

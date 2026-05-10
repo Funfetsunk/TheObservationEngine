@@ -9,6 +9,7 @@ export enum LocationId {
   TownHall = 'town_hall',
   WixburyGazette = 'wixbury_gazette',
   TownMarket = 'town_market',
+  WixburySchool = 'wixbury_school',
   MinersRest = 'miners_rest',
   MillsideHomes = 'millside_homes',
   MillsideCommunitySpace = 'millside_community_space',

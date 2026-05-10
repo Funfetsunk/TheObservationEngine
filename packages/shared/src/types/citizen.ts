@@ -18,6 +18,7 @@ export enum CitizenAction {
   Socialising = 'socialising',
   Working = 'working',
   Leisure = 'leisure',
+  School = 'school',
 }
 
 export interface CitizenTraits {
@@ -49,4 +50,6 @@ export interface Citizen {
   dailyWorkTarget: number;
   workedTodayTicks: number;
   wealth: number;
+  parentAId?: string;
+  parentBId?: string;
 }

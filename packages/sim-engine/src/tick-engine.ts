@@ -2,7 +2,7 @@ import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { PrismaClient } from '@wixbury/db';
 import { Building, Citizen, EventType, JobType } from '@wixbury/shared';
-import { tickCitizen } from './citizen-agent';
+import { tickCitizen, feedChildren } from './citizen-agent';
 import { RelationshipEngine } from './relationship-engine';
 import { PopulationEngine } from './population-engine';
 import { EconomyEngine } from './economy-engine';
@@ -24,7 +24,7 @@ import {
   SIM_DAYS_TO_RUN,
   NEWSPAPER_EDITION_INTERVAL_TICKS,
 } from './constants';
-import type { NewspaperEditionJobData } from './queue';
+import type { NewspaperEditionJobData, HistoricalSummaryJobData } from './queue';
 
 function collectCrisisEvents(citizens: Citizen[], tick: number): PendingEvent[] {
   const events: PendingEvent[] = [];
@@ -71,8 +71,10 @@ export function startTickEngine(
       tickNumber++;
       try {
         for (const citizen of citizens) {
-          tickCitizen(citizen);
+          tickCitizen(citizen, tickNumber);
         }
+
+        feedChildren(citizens);
 
         economyEngine.tickWages(citizens);
 
@@ -82,8 +84,9 @@ export function startTickEngine(
         await syncCitizensToDb(citizens, prisma);
         await relationships.syncDirty(prisma);
 
+        const ageingEvents: PendingEvent[] = [];
         if (tickNumber % TICKS_PER_SIM_YEAR === 0 && tickNumber > 0) {
-          await populationEngine.tickAgeing(citizens, tickNumber, prisma);
+          ageingEvents.push(...await populationEngine.tickAgeing(citizens, tickNumber, prisma));
         }
 
         const naturalDeaths = populationEngine.checkNaturalDeaths(citizens, tickNumber);
@@ -138,11 +141,25 @@ export function startTickEngine(
           districtEvents.push(...await districtEngine.tickWealthDrift(districts, citizens, tickNumber, prisma));
           districtEvents.push(...await districtEngine.checkConstruction(districts, citizens, buildings, tickNumber, prisma));
           districtEvents.push(...await districtEngine.checkDemolition(buildings, tickNumber, prisma));
+
+          const simYear = Math.floor(tickNumber / TICKS_PER_SIM_YEAR);
+          const yearStart = tickNumber - TICKS_PER_SIM_YEAR + 1;
+          const historicalJobData: HistoricalSummaryJobData = {
+            yearStart,
+            yearEnd: tickNumber,
+            simYear,
+          };
+          await queue.add('generate_historical_summary', historicalJobData, {
+            jobId: `year-${simYear}`,
+            removeOnComplete: { count: 10 },
+            removeOnFail: { count: 5 },
+          });
         }
 
         const allEvents: PendingEvent[] = [
           ...crisisEvents,
           ...relEvents,
+          ...ageingEvents,
           ...deathEvents,
           ...birthEvents,
           ...migrationEvents,

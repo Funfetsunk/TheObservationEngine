@@ -11,6 +11,15 @@ import {
   NEEDS_STARTING_VALUE,
   MIN_WORK_HOURS,
   MAX_WORK_HOURS,
+  MIN_WORKING_AGE,
+  TICKS_PER_SIM_DAY,
+  SCHOOL_MIN_AGE,
+  SCHOOL_START_HOUR,
+  SCHOOL_END_HOUR,
+  SCHOOL_HUNGER_RECOVERY_PER_TICK,
+  SCHOOL_SOCIAL_RECOVERY_PER_TICK,
+  SCHOOL_TRAIT_GAIN_PER_TICK,
+  SCHOOL_AMBITION_MULTIPLIER,
 } from './constants';
 import { activePolicyEffects } from './policy-effects';
 import { getHomeLocation, JOB_WORK_LOCATION } from './world';
@@ -51,8 +60,28 @@ function randomTraits(): CitizenTraits {
   };
 }
 
-function pickAction(citizen: Citizen): CitizenAction {
+function isSchoolTime(tickNumber: number): boolean {
+  const simHour = tickNumber % TICKS_PER_SIM_DAY;
+  const simDayOfWeek = Math.floor(tickNumber / TICKS_PER_SIM_DAY) % 7;
+  return simDayOfWeek < 5 && simHour >= SCHOOL_START_HOUR && simHour < SCHOOL_END_HOUR;
+}
+
+function pickAction(citizen: Citizen, tickNumber: number): CitizenAction {
   const { hunger, energy, social } = citizen.needs;
+
+  if (citizen.age < SCHOOL_MIN_AGE) {
+    return CitizenAction.Leisure;
+  }
+
+  if (citizen.age < MIN_WORKING_AGE) {
+    // School-age (4–17): critical needs override, then school, then recovery, then leisure
+    if (hunger < NEED_PRIORITY_THRESHOLD) return CitizenAction.Eating;
+    if (energy < NEED_PRIORITY_THRESHOLD) return CitizenAction.Sleeping;
+    if (isSchoolTime(tickNumber)) return CitizenAction.School;
+    if (citizen.currentAction === CitizenAction.Eating && hunger < NEED_RECOVERY_TARGET) return CitizenAction.Eating;
+    if (citizen.currentAction === CitizenAction.Sleeping && energy < NEED_RECOVERY_TARGET) return CitizenAction.Sleeping;
+    return CitizenAction.Leisure;
+  }
 
   if (
     hunger < NEED_PRIORITY_THRESHOLD ||
@@ -84,7 +113,11 @@ function pickAction(citizen: Citizen): CitizenAction {
 
 function pickLocation(action: CitizenAction, citizen: Citizen): LocationId {
   const districtId = citizen.homeDistrictId as DistrictId;
+  if (citizen.age < MIN_WORKING_AGE && action !== CitizenAction.School) {
+    return getHomeLocation(districtId);
+  }
   switch (action) {
+    case CitizenAction.School: return LocationId.WixburySchool;
     case CitizenAction.Sleeping: return getHomeLocation(districtId);
     case CitizenAction.Eating: return getHomeLocation(districtId);
     case CitizenAction.Working: return JOB_WORK_LOCATION[citizen.job];
@@ -133,12 +166,12 @@ export function createCitizen(
   };
 }
 
-export function tickCitizen(citizen: Citizen): CitizenAction {
+export function tickCitizen(citizen: Citizen, tickNumber: number): CitizenAction {
   citizen.needs.hunger = clamp(citizen.needs.hunger - HUNGER_DECAY_PER_TICK * activePolicyEffects.hungerDecayMultiplier);
   citizen.needs.energy = clamp(citizen.needs.energy - ENERGY_DECAY_PER_TICK);
   citizen.needs.social = clamp(citizen.needs.social - SOCIAL_DECAY_PER_TICK * activePolicyEffects.socialDecayMultiplier);
 
-  const action = pickAction(citizen);
+  const action = pickAction(citizen, tickNumber);
   citizen.currentAction = action;
 
   switch (action) {
@@ -154,6 +187,15 @@ export function tickCitizen(citizen: Citizen): CitizenAction {
     case CitizenAction.Working:
       citizen.workedTodayTicks++;
       break;
+    case CitizenAction.School: {
+      const learningRate = SCHOOL_TRAIT_GAIN_PER_TICK * (1 + citizen.traits.ambition * SCHOOL_AMBITION_MULTIPLIER);
+      citizen.traits.ambition = clamp(citizen.traits.ambition + learningRate);
+      citizen.traits.honesty   = clamp(citizen.traits.honesty   + learningRate);
+      citizen.traits.empathy   = clamp(citizen.traits.empathy   + learningRate);
+      citizen.needs.hunger = clamp(citizen.needs.hunger + SCHOOL_HUNGER_RECOVERY_PER_TICK);
+      citizen.needs.social = clamp(citizen.needs.social + SCHOOL_SOCIAL_RECOVERY_PER_TICK);
+      break;
+    }
     case CitizenAction.Leisure:
       break;
   }
@@ -161,4 +203,26 @@ export function tickCitizen(citizen: Citizen): CitizenAction {
   citizen.currentLocationId = pickLocation(action, citizen);
 
   return action;
+}
+
+export function feedChildren(citizens: readonly Citizen[]): void {
+  const children = citizens.filter(c => c.age < MIN_WORKING_AGE);
+  if (children.length === 0) return;
+
+  const citizenById = new Map(citizens.map(c => [c.id, c]));
+
+  for (const child of children) {
+    const homeLocation = getHomeLocation(child.homeDistrictId as DistrictId);
+    const parentA = child.parentAId ? citizenById.get(child.parentAId) : undefined;
+    const parentB = child.parentBId ? citizenById.get(child.parentBId) : undefined;
+
+    const parentAtHome =
+      (parentA !== undefined && parentA.currentLocationId === homeLocation) ||
+      (parentB !== undefined && parentB.currentLocationId === homeLocation);
+
+    if (parentAtHome) {
+      child.needs.hunger = clamp(child.needs.hunger + HUNGER_RECOVERY_PER_TICK);
+      child.needs.energy = clamp(child.needs.energy + ENERGY_RECOVERY_PER_TICK);
+    }
+  }
 }

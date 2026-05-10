@@ -52,6 +52,8 @@ export const RELATIONSHIP_RIVAL_THRESHOLD = -0.3;
 export const RELATIONSHIP_CAP = 50;
 export const RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD = 0.7;
 export const RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF = 0.2;
+export const MIN_ROMANTIC_AGE = 18;   // no romantic relationships under 18
+export const MIN_SOCIAL_AGE = 5;      // under 5: only parent relationships
 
 // District evolution (Phase 5 System 4)
 export const DISTRICT_WEALTH_DRIFT_RATE = 0.30;          // lerp factor per year toward target wealthScore
@@ -96,10 +98,24 @@ export const JOB_SEEK_PROBABILITY = 0.25;
 export const UNEMPLOYMENT_SPIKE_THRESHOLD = 0.20;
 export const STRIKE_THRESHOLD = 0.30;
 
+// School system
+export const SCHOOL_MIN_AGE = 4;
+export const SCHOOL_MAX_AGE = 17;
+export const SCHOOL_START_HOUR = 8;
+export const SCHOOL_END_HOUR = 16;                        // exclusive (hours 8–15 attend)
+export const SCHOOL_HUNGER_RECOVERY_PER_TICK = 0.12;
+export const SCHOOL_SOCIAL_RECOVERY_PER_TICK = 0.20;
+export const SCHOOL_TRAIT_GAIN_PER_TICK = 0.000005;       // 5e-6 → ~0.135 gain over full career
+export const SCHOOL_AMBITION_MULTIPLIER = 0.4;
+
 // Population dynamics (Phase 5 System 1)
 export const TICKS_PER_SIM_YEAR = TICKS_PER_SIM_DAY * 365;   // 8760 ticks ≈ 6 real days
+export const MIN_WORKING_AGE = 18;
 export const CITIZEN_MIN_DEATH_AGE = 60;
 export const CITIZEN_MAX_DEATH_AGE = 90;
 export const BIRTH_PROBABILITY_PER_TICK = 0.0002;
 export const MIGRATION_PROBABILITY_PER_TICK = 0.0005;
 export const CRISIS_DEATH_CONSECUTIVE_TICKS = 48;              // ~2 sim days
+
+// Historical archive (Phase 5 System 5)
+export const HISTORICAL_SUMMARY_SIGNIFICANCE_THRESHOLD = 0.65;

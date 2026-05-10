@@ -5,6 +5,7 @@ export const ACTIVITY_COLOUR: Record<string, { fill: string; label: string }> = 
   eating:      { fill: '#22c55e', label: 'Eating' },     // green-500
   socialising: { fill: '#f59e0b', label: 'Socialising' },// amber-500
   leisure:     { fill: '#6b7280', label: 'Leisure' },    // gray-500
+  school:      { fill: '#a855f7', label: 'School' },     // purple-500
 };
 
 export function activityColour(activity: string): string {
