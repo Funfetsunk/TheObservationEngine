@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { PrismaClient } from '@wixbury/db';
 import { NewspaperJob } from './jobs/newspaper-job';
+import { HistoricalArchiveJob } from './jobs/historical-archive-job';
 import { LLMClient } from './llm/llm-client';
 import { logError, logStructured } from './logger';
 
@@ -11,6 +12,12 @@ export interface NewspaperEditionJobData {
   weekStart: number;
   weekEnd: number;
   currentTick: number;
+}
+
+export interface HistoricalSummaryJobData {
+  yearStart: number;
+  yearEnd: number;
+  simYear: number;
 }
 
 function parseRedisUrl(url: string): { host: string; port: number; password?: string } {
@@ -40,6 +47,10 @@ export function startWorker(
         const data = job.data as NewspaperEditionJobData;
         const newspaperJob = new NewspaperJob(prisma, llmClient, redisPublisher);
         await newspaperJob.run(data.weekStart, data.weekEnd, data.currentTick);
+      } else if (job.name === 'generate_historical_summary') {
+        const data = job.data as HistoricalSummaryJobData;
+        const archiveJob = new HistoricalArchiveJob(prisma, llmClient);
+        await archiveJob.run(data.yearStart, data.yearEnd, data.simYear);
       }
     },
     { connection: parseRedisUrl(redisUrl) },

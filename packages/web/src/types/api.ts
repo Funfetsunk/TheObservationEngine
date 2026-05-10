@@ -143,3 +143,25 @@ export interface EventSummary {
 export interface EventsResponse {
   events: EventSummary[];
 }
+
+export interface HistoricalSummaryItem {
+  id: string;
+  simYear: number;
+  yearStart: number;
+  yearEnd: number;
+  preview: string;
+}
+
+export interface HistoryIndexResponse {
+  summaries: HistoricalSummaryItem[];
+  total: number;
+  page: number;
+}
+
+export interface HistoryYearResponse {
+  id: string;
+  simYear: number;
+  yearStart: number;
+  yearEnd: number;
+  content: string;
+}

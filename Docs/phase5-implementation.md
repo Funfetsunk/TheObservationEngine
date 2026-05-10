@@ -372,6 +372,76 @@ Class `DistrictEngine` with:
 
 **Goal:** At the end of each simulated year, generate an LLM-authored historical summary article covering major events, deaths, births, elections, and business changes.
 
+### Pre-implementation: mocking system
+
+Before writing `HistoricalArchiveJob`, extend the mock LLM infrastructure so all job logic can be tested without API calls. `HistoricalArchiveJob` uses constructor-injected `LLMClient` (same pattern as `NewspaperJob`), so the existing interface already supports this — but `MockLLMClient` needs call tracking and configurable fixture content.
+
+**Enhance `packages/sim-engine/src/llm/mock-llm-client.ts`:**
+
+```typescript
+import { LLMClient, LLMResponse } from './llm-client';
+
+export class MockLLMClient implements LLMClient {
+  private calls: Array<{ systemPrompt: string; userPrompt: string }> = [];
+  private fixtureContent: string = '[Mock LLM output — no API call made]';
+
+  setFixtureContent(content: string): void {
+    this.fixtureContent = content;
+  }
+
+  getCallCount(): number {
+    return this.calls.length;
+  }
+
+  getLastCall(): { systemPrompt: string; userPrompt: string } | undefined {
+    return this.calls[this.calls.length - 1];
+  }
+
+  reset(): void {
+    this.calls = [];
+    this.fixtureContent = '[Mock LLM output — no API call made]';
+  }
+
+  async generate(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
+    this.calls.push({ systemPrompt, userPrompt });
+    return {
+      content: this.fixtureContent,
+      usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, estimatedCostUsd: 0 },
+    };
+  }
+}
+```
+
+**Fixture content for archive tests** — a realistic one-page retrospective. Used by `setFixtureContent` in test setup:
+
+```typescript
+// packages/sim-engine/src/llm/__fixtures__/historical-archive-fixture.ts
+export const HISTORICAL_ARCHIVE_FIXTURE = `WIXBURY — THE YEAR IN REVIEW: YEAR ONE
+
+It was a year of quiet upheaval for this northern town. The population of Wixbury, never large, shifted perceptibly as three new faces arrived from beyond the district boundaries and two of the founding generation passed away, their names now written into the permanent record.
+
+Margaret Hollis, 74, died in late autumn after a period of declining health. She had worked for thirty years as a shopkeeper in the Town Centre. Roy Finch, 81, followed in winter. Both are survived by neighbours who remember them as unremarkable in the best sense — steady, present, reliable.
+
+On the economic front, The Miner's Rest reported its busiest period on record, attributed by regulars to a run of cold weather and the uncertain employment picture following the closure of two factory positions at The Works. Unemployment in Millside reached a high of twenty-two percent in the third quarter before recovering modestly.
+
+The council held its first election under the new term. Five seats were contested; three incumbents retained their positions. The result was received with characteristic Wixbury indifference.
+
+One child was born this year: a daughter to Elaine and Dennis Park of Harrowgate. They have not yet named her publicly.
+
+The Wixbury Gazette is published weekly. All rights reserved.`;
+```
+
+**Test file: `packages/sim-engine/src/jobs/__tests__/historical-archive-job.test.ts`**
+
+Tests to write before implementing the job:
+- `run()` makes exactly one LLM call
+- LLM call user prompt contains valid JSON parseable as the expected payload shape (`events`, `citizens`, `elections` keys)
+- Events below `HISTORICAL_SUMMARY_SIGNIFICANCE_THRESHOLD` are excluded from payload
+- `HistoricalSummary` DB record is inserted with correct `simYear`, `yearStart`, `yearEnd`, `content`
+- `YearClosed` event is written to the events table
+- If zero significant events exist, job still completes (empty events array in payload — no crash)
+- `run()` is idempotent: BullMQ `jobId: year-${simYear}` deduplication prevents double insert (test via queue layer, not job directly)
+
 ### Schema migration
 ```prisma
 model HistoricalSummary {
@@ -444,61 +514,64 @@ Export new types from each system (`Business`, `Faction`, `Building`, etc.).
 ## Implementation checklist
 
 ### System 1 — Population dynamics
-- [ ] Add constants to `constants.ts`
-- [ ] Add `CitizenBorn`, `CitizenDied`, `CitizenMigrated` to `EventType`
-- [ ] Create `population-engine.ts`
-- [ ] Update `significance-scorer.ts`
-- [ ] Update `tick-engine.ts` (wire engine, handle dying/born citizens)
-- [ ] Update `db-sync.ts` (age sync)
-- [ ] Update `main.ts` (instantiate engine, pass to tick engine)
-- [ ] Verify `diedAt` filter in main.ts load query (already present)
+- [x] Add constants to `constants.ts`
+- [x] Add `CitizenBorn`, `CitizenDied`, `CitizenMigrated` to `EventType`
+- [x] Create `population-engine.ts`
+- [x] Update `significance-scorer.ts`
+- [x] Update `tick-engine.ts` (wire engine, handle dying/born citizens)
+- [x] Update `db-sync.ts` (age sync)
+- [x] Update `main.ts` (instantiate engine, pass to tick engine)
+- [x] Verify `diedAt` filter in main.ts load query (already present)
 
 ### System 2 — Economy engine
-- [ ] Schema migration: add `wealth` to Citizen, add `Business` model
-- [ ] Run `prisma migrate dev`
-- [ ] Add constants to `constants.ts`
-- [ ] Add `BusinessType` enum and `Business` interface to shared types
-- [ ] Add `wealth` to `Citizen` interface in shared types
-- [ ] Add new event types to `EventType`
-- [ ] Create `economy-engine.ts`
-- [ ] Update `significance-scorer.ts`
-- [ ] Update `db-sync.ts` (wealth sync, business sync)
-- [ ] Update `tick-engine.ts` (wire engine)
-- [ ] Update `main.ts` (load businesses, instantiate engine)
-- [ ] Add web API routes for businesses
+- [x] Schema migration: add `wealth` to Citizen, add `Business` model
+- [x] Run `prisma migrate dev`
+- [x] Add constants to `constants.ts`
+- [x] Add `BusinessType` enum and `Business` interface to shared types
+- [x] Add `wealth` to `Citizen` interface in shared types
+- [x] Add new event types to `EventType`
+- [x] Create `economy-engine.ts`
+- [x] Update `significance-scorer.ts`
+- [x] Update `db-sync.ts` (wealth sync, business sync)
+- [x] Update `tick-engine.ts` (wire engine)
+- [x] Update `main.ts` (load businesses, instantiate engine)
+- [x] Add web API routes for businesses
 
 ### System 3 — Political system
-- [ ] Schema migration: add `Election`, `Policy`, `Faction` models
-- [ ] Run `prisma migrate dev`
-- [ ] Add constants to `constants.ts`
-- [ ] Add new event types to `EventType`
-- [ ] Create `political-engine.ts`
-- [ ] Update `significance-scorer.ts`
-- [ ] Update `tick-engine.ts` (wire engine, election/policy/faction schedule)
-- [ ] Update `main.ts` (load councillors, instantiate engine)
-- [ ] Add web API routes for elections, policies, factions
+- [x] Schema migration: add `Election`, `Policy`, `Faction` models
+- [x] Run `prisma migrate dev`
+- [x] Add constants to `constants.ts`
+- [x] Add new event types to `EventType`
+- [x] Create `political-engine.ts`
+- [x] Update `significance-scorer.ts`
+- [x] Update `tick-engine.ts` (wire engine, election/policy/faction schedule)
+- [x] Update `main.ts` (load councillors, instantiate engine)
+- [x] Add web API routes for elections, policies, factions
 
 ### System 4 — District evolution
-- [ ] Schema migration: add `Building` model, add `wealthScore`/`populationScore` to District
-- [ ] Run `prisma migrate dev`
-- [ ] Add constants to `constants.ts`
-- [ ] Add `Building` interface to shared types
-- [ ] Add new event types to `EventType`
-- [ ] Create `district-engine.ts`
-- [ ] Update `significance-scorer.ts`
-- [ ] Update `tick-engine.ts` (wire engine)
-- [ ] Update `main.ts` (load buildings, instantiate engine)
-- [ ] Add web API routes for buildings, district detail
-- [ ] Update map component: district colour by wealth score
+- [x] Schema migration: add `Building` model, add `wealthScore`/`populationScore` to District
+- [x] Run `prisma migrate dev`
+- [x] Add constants to `constants.ts`
+- [x] Add `Building` interface to shared types
+- [x] Add new event types to `EventType`
+- [x] Create `district-engine.ts`
+- [x] Update `significance-scorer.ts`
+- [x] Update `tick-engine.ts` (wire engine)
+- [x] Update `main.ts` (load buildings, instantiate engine)
+- [x] Add web API routes for buildings, district detail
+- [x] Update map component: district colour by wealth score
 
 ### System 5 — Historical archive (get approval first)
-- [ ] **Get explicit user approval on LLM cost before proceeding**
-- [ ] Schema migration: add `HistoricalSummary` model
-- [ ] Run `prisma migrate dev`
-- [ ] Add constants to `constants.ts`
-- [ ] Add `YearClosed` to `EventType`
-- [ ] Create `jobs/historical-archive-job.ts`
-- [ ] Update `queue.ts` (new job type)
-- [ ] Update `tick-engine.ts` (enqueue on year boundary)
-- [ ] Add web API routes for history
-- [ ] Add web frontend history pages
+- [x] **Get explicit user approval on LLM cost before proceeding**
+- [x] Enhance `MockLLMClient` with call tracking (`getCallCount`, `getLastCall`, `setFixtureContent`, `reset`)
+- [x] Add `llm/__fixtures__/historical-archive-fixture.ts` with `HISTORICAL_ARCHIVE_FIXTURE` constant
+- [x] Write `jobs/__tests__/historical-archive-job.test.ts` (8/8 passing)
+- [x] Schema migration: add `HistoricalSummary` model
+- [x] Run `prisma migrate dev`
+- [x] Add constants to `constants.ts`
+- [x] Add `YearClosed` to `EventType`
+- [x] Create `jobs/historical-archive-job.ts`
+- [x] Update `queue.ts` (new job type)
+- [x] Update `tick-engine.ts` (enqueue on year boundary)
+- [x] Add web API routes for history
+- [x] Add web frontend history pages

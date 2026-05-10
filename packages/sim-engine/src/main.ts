@@ -37,6 +37,8 @@ interface DbCitizenRow {
   traitRiskTolerance: number;
   traitReligiosity: number;
   traitPolitical: number;
+  parentAId: string | null;
+  parentBId: string | null;
 }
 
 function dbRowToCitizen(row: DbCitizenRow): Citizen {
@@ -70,6 +72,8 @@ function dbRowToCitizen(row: DbCitizenRow): Citizen {
     dailyWorkTarget,
     workedTodayTicks: row.workedTodayTicks,
     wealth: row.wealth,
+    parentAId: row.parentAId ?? undefined,
+    parentBId: row.parentBId ?? undefined,
   };
 }
 
@@ -107,7 +111,7 @@ async function main(): Promise<void> {
   }
 
   const dbCitizens = await prisma.citizen.findMany({ where: { diedAt: null } });
-  const citizens: Citizen[] = dbCitizens.map(row => dbRowToCitizen(row as DbCitizenRow));
+  const citizens: Citizen[] = dbCitizens.map(row => dbRowToCitizen(row as unknown as DbCitizenRow));
 
   const dbBusinesses = await prisma.business.findMany({ where: { closedAt: null } });
   const businesses: Business[] = dbBusinesses.map(b => ({

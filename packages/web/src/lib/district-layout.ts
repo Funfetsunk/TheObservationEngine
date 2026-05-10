@@ -17,16 +17,26 @@ export const DISTRICT_LAYOUT: Record<string, DistrictLayout> = {
   the_works:   { id: 'the_works',   x: 200, y: 310, width: 210, height: 150, fill: '#451a03', stroke: '#d97706' },
 };
 
+function fnv1a(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  }
+  return h >>> 0;
+}
+
 export function getCitizenPosition(
   citizenId: string,
   layout: DistrictLayout,
 ): { x: number; y: number } {
-  const hash = citizenId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const nx = (hash % 100) / 100;
-  const ny = (Math.floor(hash / 100) % 100) / 100;
-  const margin = 18;
+  const h = fnv1a(citizenId);
+  const nx = (h & 0xffff) / 0xffff;
+  const ny = (h >>> 16) / 0xffff;
+  const mx = 12;
+  const topMargin = 40; // clear district name + resident count labels
+  const bottomMargin = 12;
   return {
-    x: layout.x + margin + nx * (layout.width - margin * 2),
-    y: layout.y + margin + ny * (layout.height - margin * 2),
+    x: layout.x + mx + nx * (layout.width - mx * 2),
+    y: layout.y + topMargin + ny * (layout.height - topMargin - bottomMargin),
   };
 }

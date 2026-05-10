@@ -48,6 +48,8 @@ model Citizen {
   currentLocationId String
   workedTodayTicks  Int   @default(0)
   wealth            Float @default(0)
+  parentAId         String?
+  parentBId         String?
 
   relationshipsAsA Relationship[] @relation("RelCitizenA")
   relationshipsAsB Relationship[] @relation("RelCitizenB")
@@ -155,4 +157,15 @@ model NewspaperEdition {
   createdAt DateTime @default(now())
 
   @@map("newspaper_editions")
+}
+
+model HistoricalSummary {
+  id        String   @id @default(uuid())
+  simYear   Int
+  yearStart Int
+  yearEnd   Int
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("historical_summaries")
 }

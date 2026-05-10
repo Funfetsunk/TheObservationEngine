@@ -9,6 +9,17 @@ import type { WsEventMessage } from '@/types/ws';
 import type { CitizenProfileResponse } from '@/types/api';
 
 const MAX_STORED_EVENTS = 50;
+const FEED_STORAGE_KEY = 'wixbury:feed';
+
+function loadStoredEvents(): WsEventMessage[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(FEED_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as WsEventMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 interface DistrictInfo {
   id: string;
@@ -50,7 +61,7 @@ function needBar(label: string, value: number): React.ReactElement {
   );
 }
 
-function CitizenPanel({ id, onClose }: { id: string; onClose: () => void }): React.ReactElement {
+function CitizenPanel({ id, liveActivity, onClose }: { id: string; liveActivity?: string; onClose: () => void }): React.ReactElement {
   const [profile, setProfile] = useState<CitizenProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -91,7 +102,7 @@ function CitizenPanel({ id, onClose }: { id: string; onClose: () => void }): Rea
           <div>
             <p className="text-white font-medium text-sm">{profile.name}</p>
             <p className="text-gray-400 text-xs">{profile.age} · {profile.jobType.replace('_', ' ')} · {profile.districtName}</p>
-            <p className="text-gray-500 text-xs mt-0.5">{profile.currentActivity}</p>
+            <p className="text-gray-500 text-xs mt-0.5">{liveActivity ?? profile.currentActivity}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -138,14 +149,22 @@ export function LiveCity({
 }: LiveCityProps): React.ReactElement {
   const { tick, simulatedAt, citizens, lastEvent, connected } = useCityState(initialCitizens);
   const [events, setEvents] = useState<WsEventMessage[]>([]);
+
+  useEffect(() => {
+    const stored = loadStoredEvents();
+    if (stored.length > 0) setEvents(stored);
+  }, []);
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const prevSelectedId = useRef<string | undefined>();
 
   useEffect(() => {
     if (!lastEvent) return;
     setEvents(prev => {
+      if (prev.some(e => e.eventId === lastEvent.eventId)) return prev;
       const next = [...prev, lastEvent];
-      return next.length > MAX_STORED_EVENTS ? next.slice(-MAX_STORED_EVENTS) : next;
+      const capped = next.length > MAX_STORED_EVENTS ? next.slice(-MAX_STORED_EVENTS) : next;
+      try { sessionStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(capped)); } catch { /* quota */ }
+      return capped;
     });
   }, [lastEvent]);
 
@@ -211,7 +230,7 @@ export function LiveCity({
 
         <div className="hidden lg:block bg-gray-900 border border-gray-800 rounded-lg p-4 h-[420px]">
           {selectedId
-            ? <CitizenPanel id={selectedId} onClose={() => handleSelect(undefined)} />
+            ? <CitizenPanel id={selectedId} liveActivity={citizens.find(c => c.id === selectedId)?.activity} onClose={() => handleSelect(undefined)} />
             : <CommentaryFeed events={events} />
           }
         </div>

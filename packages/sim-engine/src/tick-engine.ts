@@ -112,8 +112,10 @@ export function startTickEngine(
         economyEvents.push(...economyEngine.checkUnemploymentSpike(citizens, tickNumber));
 
         if (tickNumber % TICKS_PER_SIM_WEEK === 0) {
+          economyEngine.checkBusinessCosts(citizens, businesses);
+          economyEvents.push(...await economyEngine.checkInsolventBusinesses(citizens, businesses, tickNumber, prisma));
           economyEvents.push(...await economyEngine.checkBusinessOpportunities(citizens, businesses, tickNumber, prisma));
-          economyEvents.push(...await economyEngine.checkBusinessFailures(citizens, businesses, tickNumber, prisma));
+          await economyEngine.checkHiring(citizens, businesses, tickNumber, prisma);
         }
 
         if (tickNumber % JOB_CHANGE_CHECK_INTERVAL_TICKS === 0) {

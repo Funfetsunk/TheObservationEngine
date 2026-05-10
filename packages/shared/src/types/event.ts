@@ -10,6 +10,7 @@ export enum EventType {
   CitizenMigrated = 'citizen_migrated',
   BusinessOpened = 'business_opened',
   BusinessClosed = 'business_closed',
+  BusinessSold = 'business_sold',
   Promotion = 'promotion',
   UnemploymentSpike = 'unemployment_spike',
   Strike = 'strike',

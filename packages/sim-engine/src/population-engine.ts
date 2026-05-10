@@ -4,6 +4,8 @@ import {
   BIRTH_PROBABILITY_PER_TICK,
   CITIZEN_MAX_DEATH_AGE,
   CITIZEN_MIN_DEATH_AGE,
+  COUPLE_MAX_CHILDREN_MAX,
+  COUPLE_MAX_CHILDREN_MIN,
   CRISIS_DEATH_CONSECUTIVE_TICKS,
   MIGRATION_PROBABILITY_PER_TICK,
   MIN_WORKING_AGE,
@@ -15,6 +17,16 @@ import { scoreSignificance } from './significance-scorer';
 import { syncCitizenAge } from './db-sync';
 import { createCitizen } from './citizen-agent';
 import type { RelationshipEngine } from './relationship-engine';
+
+function coupleMaxChildren(aId: string, bId: string): number {
+  const combined = [aId, bId].sort().join('');
+  let hash = 0;
+  for (let i = 0; i < combined.length; i++) {
+    hash = Math.imul(hash * 31 + combined.charCodeAt(i), 1) >>> 0;
+  }
+  const range = COUPLE_MAX_CHILDREN_MAX - COUPLE_MAX_CHILDREN_MIN + 1;
+  return COUPLE_MAX_CHILDREN_MIN + (hash % range);
+}
 
 function inheritTrait(parentA: number, parentB: number): number {
   const base = (parentA + parentB) / 2;
@@ -157,6 +169,13 @@ export class PopulationEngine {
       const parentB = citizenMap.get(bId);
       if (!parentA || !parentB) continue;
       if (parentA.age > 45 || parentB.age > 45) continue;
+
+      const maxChildren = coupleMaxChildren(aId, bId);
+      const existingChildren = citizens.filter(
+        c => (c.parentAId === aId && c.parentBId === bId) || (c.parentAId === bId && c.parentBId === aId),
+      ).length;
+      if (existingChildren >= maxChildren) continue;
+
       if (Math.random() >= BIRTH_PROBABILITY_PER_TICK) continue;
 
       const newborn = createCitizen(parentA.homeDistrictId as DistrictId, JobType.Unemployed);

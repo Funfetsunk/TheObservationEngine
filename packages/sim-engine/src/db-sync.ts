@@ -43,11 +43,15 @@ export async function syncCitizensToDb(citizens: Citizen[], prisma: PrismaClient
 }
 
 export async function syncBusinessToDb(
-  business: { id: string; closedAt: number | null; employeeIds: string[] },
+  business: { id: string; closedAt: number | null; employeeIds: string[]; ownerId?: string | null },
   prisma: PrismaClient,
 ): Promise<void> {
   await prisma.business.update({
     where: { id: business.id },
-    data: { closedAt: business.closedAt, employeeIds: business.employeeIds },
+    data: {
+      closedAt: business.closedAt,
+      employeeIds: business.employeeIds,
+      ...(business.ownerId !== undefined ? { ownerId: business.ownerId } : {}),
+    },
   });
 }

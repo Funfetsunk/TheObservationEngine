@@ -88,13 +88,30 @@ export const WAGE_PER_TICK: Record<string, number> = {
   clergy:         2,
   councillor:     5,
 };
-export const BUSINESS_OPEN_WEALTH_THRESHOLD = 300;
-export const BUSINESS_OPEN_PROBABILITY_PER_WEEK = 0.09;
-export const BUSINESS_FAIL_PROBABILITY_PER_WEEK = 0.012;
+export const BUSINESS_OPEN_WEALTH_THRESHOLD = 150;
+export const BUSINESS_OPEN_PROBABILITY_PER_WEEK = 0.20;
+export const BUSINESS_INSOLVENCY_THRESHOLD = 30;
+export const BUSINESS_SALE_PRICE = 100;
+export const BUSINESS_CAPACITY: Record<string, number> = {
+  pub:     5,
+  shop:    3,
+  factory: 12,
+  clinic:  4,
+  school:  5,
+  church:  2,
+};
+export const BUSINESS_OPERATING_COST_PER_WEEK: Record<string, number> = {
+  pub:     40,
+  shop:    25,
+  factory: 70,
+  clinic:  50,
+  school:  35,
+  church:  15,
+};
 export const JOB_CHANGE_WEALTH_THRESHOLD = 200;
 export const JOB_CHANGE_CHECK_INTERVAL_TICKS = TICKS_PER_SIM_WEEK;
 export const JOB_PROMOTION_PROBABILITY = 0.10;
-export const JOB_SEEK_PROBABILITY = 0.55;
+export const JOB_SEEK_PROBABILITY = 0.85;
 export const UNEMPLOYMENT_SPIKE_THRESHOLD = 0.20;
 export const STRIKE_THRESHOLD = 0.30;
 
@@ -114,6 +131,8 @@ export const MIN_WORKING_AGE = 18;
 export const CITIZEN_MIN_DEATH_AGE = 60;
 export const CITIZEN_MAX_DEATH_AGE = 90;
 export const BIRTH_PROBABILITY_PER_TICK = 0.0002;
+export const COUPLE_MAX_CHILDREN_MIN = 1;
+export const COUPLE_MAX_CHILDREN_MAX = 4;
 export const MIGRATION_PROBABILITY_PER_TICK = 0.0005;
 export const CRISIS_DEATH_CONSECUTIVE_TICKS = 48;              // ~2 sim days
 

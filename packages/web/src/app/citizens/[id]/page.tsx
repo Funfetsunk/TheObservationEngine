@@ -5,6 +5,7 @@ import { tickToISOString } from '@/lib/simulated-time';
 import { TraitBars } from '@/components/citizen/TraitBars';
 import { NeedsDisplay } from '@/components/citizen/NeedsDisplay';
 import { RelationshipList } from '@/components/citizen/RelationshipList';
+import { ActivityBadge } from '@/components/citizen/ActivityBadge';
 import { formatJobType, formatActivity, formatSimDate } from '@/lib/format';
 
 const RECENT_EVENTS_LIMIT = 10;
@@ -90,9 +91,7 @@ export default async function CitizenProfilePage({ params }: Props): Promise<Rea
               {citizen.diedAt !== null && ` · Died ${formatSimDate(tickToISOString(citizen.diedAt))}`}
             </p>
           </div>
-          <span className="text-xs bg-gray-800 text-gray-400 px-2.5 py-1 rounded shrink-0">
-            {formatActivity(citizen.currentAction)}
-          </span>
+          <ActivityBadge id={citizen.id} initialActivity={formatActivity(citizen.currentAction)} />
         </div>
 
         {citizen.biography && (

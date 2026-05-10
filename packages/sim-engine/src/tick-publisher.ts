@@ -43,6 +43,7 @@ export interface EventMessage {
   citizenIds: string[];
   citizenNames: string[];
   simulatedAt: string;
+  eventData?: Record<string, unknown>;
 }
 
 export interface EditionMessage {
@@ -89,6 +90,7 @@ export async function publishSignificantEvents(
       citizenIds: e.citizenIds,
       citizenNames: e.citizenIds.map(id => citizenMap.get(id) ?? id),
       simulatedAt: tickToISO(e.occurredAt),
+      eventData: e.data as Record<string, unknown> | undefined,
     };
     await redis.publish('wixbury:event', JSON.stringify(message));
   }

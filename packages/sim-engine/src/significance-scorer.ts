@@ -31,6 +31,7 @@ const BASE_SIGNIFICANCE: Record<EventType, number> = {
   [EventType.CorruptionAllegation]: 0.85,
   [EventType.BusinessOpened]: 0.65,
   [EventType.BusinessClosed]: 0.70,
+  [EventType.BusinessSold]: 0.60,
   [EventType.Promotion]: 0.55,
   [EventType.UnemploymentSpike]: 0.80,
   [EventType.Strike]: 0.85,

@@ -21,6 +21,7 @@ export interface WsEventMessage {
   citizenIds: string[];
   citizenNames: string[];
   simulatedAt: string;
+  eventData?: Record<string, unknown>;
 }
 
 export interface WsEditionMessage {

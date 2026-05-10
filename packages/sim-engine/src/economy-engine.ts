@@ -1,14 +1,17 @@
 import { PrismaClient } from '@wixbury/db';
-import { Business, BusinessType, Citizen, CitizenAction, DistrictId, EventType, JobType } from '@wixbury/shared';
+import { Business, BusinessType, Citizen, CitizenAction, EventType, JobType } from '@wixbury/shared';
 import {
-  BUSINESS_FAIL_PROBABILITY_PER_WEEK,
+  BUSINESS_CAPACITY,
+  BUSINESS_INSOLVENCY_THRESHOLD,
   BUSINESS_OPEN_PROBABILITY_PER_WEEK,
   BUSINESS_OPEN_WEALTH_THRESHOLD,
+  BUSINESS_OPERATING_COST_PER_WEEK,
+  BUSINESS_SALE_PRICE,
   JOB_CHANGE_WEALTH_THRESHOLD,
   JOB_PROMOTION_PROBABILITY,
   JOB_SEEK_PROBABILITY,
-  MIN_WORK_HOURS,
   MAX_WORK_HOURS,
+  MIN_WORK_HOURS,
   MIN_WORKING_AGE,
   STRIKE_THRESHOLD,
   UNEMPLOYMENT_SPIKE_THRESHOLD,
@@ -37,6 +40,15 @@ const JOB_BUSINESS_TYPE: Partial<Record<JobType, BusinessType>> = {
   [JobType.Clergy]: BusinessType.Church,
 };
 
+const EMPLOYEE_JOB_TYPE: Partial<Record<BusinessType, JobType>> = {
+  [BusinessType.Pub]: JobType.Publican,
+  [BusinessType.Shop]: JobType.Shopkeeper,
+  [BusinessType.Factory]: JobType.FactoryWorker,
+  [BusinessType.Clinic]: JobType.Doctor,
+  [BusinessType.School]: JobType.Teacher,
+  [BusinessType.Church]: JobType.Clergy,
+};
+
 const PROMOTION_PATHS: Partial<Record<JobType, JobType[]>> = {
   [JobType.Labourer]: [JobType.FactoryWorker, JobType.Shopkeeper],
   [JobType.FactoryWorker]: [JobType.Shopkeeper, JobType.Publican],
@@ -50,8 +62,35 @@ function randFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function pickBusinessName(type: BusinessType): string {
   return randFrom(BUSINESS_NAMES[type]);
+}
+
+function workHoursForCitizen(citizen: Citizen): number {
+  return Math.round(MIN_WORK_HOURS + citizen.traits.ambition * (MAX_WORK_HOURS - MIN_WORK_HOURS));
+}
+
+function displaceEmployees(business: Business, citizenMap: Map<string, Citizen>): Citizen[] {
+  const displaced: Citizen[] = [];
+  for (const empId of business.employeeIds) {
+    const emp = citizenMap.get(empId);
+    if (emp) {
+      emp.job = JobType.Unemployed;
+      emp.dailyWorkTarget = 0;
+      displaced.push(emp);
+    }
+  }
+  business.employeeIds = [];
+  return displaced;
 }
 
 export class EconomyEngine {
@@ -61,6 +100,143 @@ export class EconomyEngine {
     for (const citizen of citizens) {
       if (citizen.currentAction === CitizenAction.Working) {
         citizen.wealth += (WAGE_PER_TICK[citizen.job] ?? 0) * activePolicyEffects.wageMultiplier;
+      }
+    }
+  }
+
+  checkBusinessCosts(citizens: Citizen[], businesses: Business[]): void {
+    const citizenMap = new Map(citizens.map(c => [c.id, c]));
+    for (const business of businesses) {
+      if (business.closedAt !== null || business.ownerId === null) continue;
+      const owner = citizenMap.get(business.ownerId);
+      if (!owner) continue;
+      const cost = BUSINESS_OPERATING_COST_PER_WEEK[business.type] ?? 0;
+      owner.wealth = Math.max(0, owner.wealth - cost);
+    }
+  }
+
+  async checkInsolventBusinesses(
+    citizens: Citizen[],
+    businesses: Business[],
+    tickNumber: number,
+    prisma: PrismaClient,
+  ): Promise<PendingEvent[]> {
+    const events: PendingEvent[] = [];
+    const citizenMap = new Map(citizens.map(c => [c.id, c]));
+    const openOwnerIds = new Set(
+      businesses.filter(b => b.closedAt === null && b.ownerId !== null).map(b => b.ownerId!),
+    );
+
+    for (const business of businesses) {
+      if (business.closedAt !== null || business.ownerId === null) continue;
+      const owner = citizenMap.get(business.ownerId);
+      if (!owner) continue;
+      if (owner.wealth >= BUSINESS_INSOLVENCY_THRESHOLD) continue;
+
+      // Try to find a buyer
+      const buyer = citizens.find(c =>
+        c.id !== owner.id &&
+        !openOwnerIds.has(c.id) &&
+        c.age >= MIN_WORKING_AGE &&
+        c.wealth >= BUSINESS_OPEN_WEALTH_THRESHOLD + BUSINESS_SALE_PRICE &&
+        c.traits.ambition > 0.55,
+      );
+
+      if (buyer) {
+        buyer.wealth -= BUSINESS_SALE_PRICE;
+        owner.wealth += Math.floor(BUSINESS_SALE_PRICE * 0.5);
+        openOwnerIds.delete(owner.id);
+        openOwnerIds.add(buyer.id);
+        business.ownerId = buyer.id;
+        await syncBusinessToDb(business, prisma);
+        await prisma.citizen.update({ where: { id: buyer.id }, data: { wealth: buyer.wealth } });
+
+        events.push({
+          type: EventType.BusinessSold,
+          occurredAt: tickNumber,
+          citizenIds: [owner.id, buyer.id],
+          data: {
+            businessName: business.name,
+            businessType: business.type,
+            sellerName: owner.name,
+            buyerName: buyer.name,
+          },
+          significance: scoreSignificance(EventType.BusinessSold, [owner, buyer]),
+        });
+      } else {
+        // No buyer — close the business
+        business.closedAt = tickNumber;
+        const displaced = displaceEmployees(business, citizenMap);
+        await syncBusinessToDb(business, prisma);
+
+        const involvedCitizens = displaced.length > 0 ? displaced : [owner];
+        events.push({
+          type: EventType.BusinessClosed,
+          occurredAt: tickNumber,
+          citizenIds: [owner.id, ...displaced.map(c => c.id)],
+          data: { businessName: business.name, businessType: business.type, displaced: displaced.length },
+          significance: scoreSignificance(EventType.BusinessClosed, involvedCitizens),
+        });
+
+        const avgHonesty =
+          displaced.length > 0
+            ? displaced.reduce((sum, c) => sum + c.traits.honesty, 0) / displaced.length
+            : 1;
+
+        if (displaced.length > 1 && avgHonesty < 0.4 && Math.random() < 0.20) {
+          events.push({
+            type: EventType.Strike,
+            occurredAt: tickNumber,
+            citizenIds: displaced.map(c => c.id),
+            data: { businessName: business.name, workers: displaced.length },
+            significance: scoreSignificance(EventType.Strike, displaced),
+          });
+        }
+      }
+    }
+
+    return events;
+  }
+
+  async checkHiring(
+    citizens: Citizen[],
+    businesses: Business[],
+    tickNumber: number,
+    prisma: PrismaClient,
+  ): Promise<void> {
+    const unemployedAdults = shuffle(
+      citizens.filter(c => c.job === JobType.Unemployed && c.age >= MIN_WORKING_AGE),
+    );
+    if (unemployedAdults.length === 0) return;
+
+    const unemployedPool = new Set(unemployedAdults.map(c => c.id));
+
+    for (const business of businesses) {
+      if (business.closedAt !== null) continue;
+      const capacity = BUSINESS_CAPACITY[business.type] ?? 1;
+      const vacancies = capacity - business.employeeIds.length;
+      if (vacancies <= 0) continue;
+
+      const jobType = EMPLOYEE_JOB_TYPE[business.type as BusinessType];
+      if (!jobType) continue;
+
+      const hired: Citizen[] = [];
+      for (const candidate of unemployedAdults) {
+        if (hired.length >= vacancies) break;
+        if (!unemployedPool.has(candidate.id)) continue;
+
+        candidate.job = jobType;
+        candidate.dailyWorkTarget = workHoursForCitizen(candidate);
+        business.employeeIds.push(candidate.id);
+        unemployedPool.delete(candidate.id);
+        hired.push(candidate);
+      }
+
+      if (hired.length > 0) {
+        await syncBusinessToDb(business, prisma);
+        await Promise.all(
+          hired.map(c => prisma.citizen.update({ where: { id: c.id }, data: { jobType: c.job } })),
+        );
       }
     }
   }
@@ -109,6 +285,7 @@ export class EconomyEngine {
 
       citizen.wealth -= BUSINESS_OPEN_WEALTH_THRESHOLD;
       businesses.push(business);
+      openBusinessOwners.add(citizen.id);
 
       events.push({
         type: EventType.BusinessOpened,
@@ -117,61 +294,6 @@ export class EconomyEngine {
         data: { businessName: name, businessType, ownerName: citizen.name, districtId: citizen.homeDistrictId },
         significance: scoreSignificance(EventType.BusinessOpened, [citizen]),
       });
-    }
-
-    return events;
-  }
-
-  async checkBusinessFailures(
-    citizens: Citizen[],
-    businesses: Business[],
-    tickNumber: number,
-    prisma: PrismaClient,
-  ): Promise<PendingEvent[]> {
-    const events: PendingEvent[] = [];
-    const citizenMap = new Map(citizens.map(c => [c.id, c]));
-
-    for (const business of businesses) {
-      if (business.closedAt !== null) continue;
-      if (Math.random() >= BUSINESS_FAIL_PROBABILITY_PER_WEEK) continue;
-
-      business.closedAt = tickNumber;
-      await syncBusinessToDb(business, prisma);
-
-      const displaced: Citizen[] = [];
-      for (const empId of business.employeeIds) {
-        const emp = citizenMap.get(empId);
-        if (emp) {
-          emp.job = JobType.Unemployed;
-          emp.dailyWorkTarget = 0;
-          displaced.push(emp);
-        }
-      }
-
-      const avgHonesty =
-        displaced.length > 0
-          ? displaced.reduce((sum, c) => sum + c.traits.honesty, 0) / displaced.length
-          : 1;
-
-      const involvedCitizens = displaced.length > 0 ? displaced : citizens.slice(0, 1);
-      events.push({
-        type: EventType.BusinessClosed,
-        occurredAt: tickNumber,
-        citizenIds: business.employeeIds,
-        data: { businessName: business.name, businessType: business.type, displaced: displaced.length },
-        significance: scoreSignificance(EventType.BusinessClosed, involvedCitizens),
-      });
-
-      // Disgruntled workers with low collective honesty may strike
-      if (displaced.length > 1 && avgHonesty < 0.4 && Math.random() < 0.20) {
-        events.push({
-          type: EventType.Strike,
-          occurredAt: tickNumber,
-          citizenIds: business.employeeIds,
-          data: { businessName: business.name, workers: displaced.length },
-          significance: scoreSignificance(EventType.Strike, displaced),
-        });
-      }
     }
 
     return events;
@@ -191,9 +313,7 @@ export class EconomyEngine {
         if (Math.random() < JOB_SEEK_PROBABILITY) {
           const entryJobs = [JobType.Labourer, JobType.FactoryWorker, JobType.Shopkeeper];
           citizen.job = randFrom(entryJobs);
-          citizen.dailyWorkTarget = Math.round(
-            MIN_WORK_HOURS + citizen.traits.ambition * (MAX_WORK_HOURS - MIN_WORK_HOURS),
-          );
+          citizen.dailyWorkTarget = workHoursForCitizen(citizen);
           await prisma.citizen.update({ where: { id: citizen.id }, data: { jobType: citizen.job } });
         }
         continue;
@@ -208,9 +328,7 @@ export class EconomyEngine {
 
       const prevJob = citizen.job;
       citizen.job = randFrom(targets);
-      citizen.dailyWorkTarget = Math.round(
-        MIN_WORK_HOURS + citizen.traits.ambition * (MAX_WORK_HOURS - MIN_WORK_HOURS),
-      );
+      citizen.dailyWorkTarget = workHoursForCitizen(citizen);
       await prisma.citizen.update({ where: { id: citizen.id }, data: { jobType: citizen.job } });
 
       events.push({
@@ -226,11 +344,12 @@ export class EconomyEngine {
   }
 
   checkUnemploymentSpike(citizens: Citizen[], tickNumber: number): PendingEvent[] {
-    const unemployedCount = citizens.filter(c => c.job === JobType.Unemployed).length;
-    if (citizens.length === 0) return [];
+    const adults = citizens.filter(c => c.age >= MIN_WORKING_AGE);
+    if (adults.length === 0) return [];
 
-    const rate = unemployedCount / citizens.length;
-    const debounce = 168; // one sim week between spike events
+    const unemployedCount = adults.filter(c => c.job === JobType.Unemployed).length;
+    const rate = unemployedCount / adults.length;
+    const debounce = 168;
 
     if (rate >= UNEMPLOYMENT_SPIKE_THRESHOLD && tickNumber - this.lastUnemploymentSpikeTick > debounce) {
       this.lastUnemploymentSpikeTick = tickNumber;

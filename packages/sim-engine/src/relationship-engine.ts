@@ -7,6 +7,8 @@ import {
   RELATIONSHIP_CAP,
   RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD,
   RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF,
+  MIN_ROMANTIC_AGE,
+  MIN_SOCIAL_AGE,
 } from './constants';
 import { PendingEvent } from './event-emitter';
 import { scoreSignificance } from './significance-scorer';
@@ -45,9 +47,13 @@ function resolveType(
   bJob: JobType,
   aSociability: number,
   bSociability: number,
+  aAge: number,
+  bAge: number,
 ): RelationshipType {
+  const eitherMinor = aAge < MIN_ROMANTIC_AGE || bAge < MIN_ROMANTIC_AGE;
   if (score < RELATIONSHIP_RIVAL_THRESHOLD) return RelationshipType.Rival;
   if (
+    !eitherMinor &&
     score >= RELATIONSHIP_ROMANTIC_SCORE_THRESHOLD &&
     Math.abs(aSociability - bSociability) < RELATIONSHIP_ROMANTIC_SOCIABILITY_MAX_DIFF
   ) {
@@ -103,6 +109,18 @@ export class RelationshipEngine {
   }
 
   private updatePair(a: Citizen, b: Citizen, tick: number): PendingEvent | null {
+    const aIsParentOfB = b.parentAId === a.id || b.parentBId === a.id;
+    const bIsParentOfA = a.parentAId === b.id || a.parentBId === b.id;
+    const areParentChild = aIsParentOfB || bIsParentOfA;
+
+    // Under MIN_SOCIAL_AGE: only interact with own parents
+    if ((a.age < MIN_SOCIAL_AGE || b.age < MIN_SOCIAL_AGE) && !areParentChild) return null;
+
+    // Minor↔adult: only allowed if parent–child
+    const aIsMinor = a.age < MIN_ROMANTIC_AGE;
+    const bIsMinor = b.age < MIN_ROMANTIC_AGE;
+    if (aIsMinor !== bIsMinor && !areParentChild) return null;
+
     const key = makeKey(a.id, b.id);
     const compatibility = computeCompatibility(a.traits, b.traits);
     const scoreChange = (compatibility - 0.5) * RELATIONSHIP_SCORE_CHANGE_PER_TICK;
@@ -119,7 +137,7 @@ export class RelationshipEngine {
         citizenAId: aId,
         citizenBId: bId,
         score: initialScore,
-        type: resolveType(initialScore, a.job, b.job, a.traits.sociability, b.traits.sociability),
+        type: resolveType(initialScore, a.job, b.job, a.traits.sociability, b.traits.sociability, a.age, b.age),
         formedAt: tick,
         lastUpdated: tick,
         dirty: true,
@@ -137,7 +155,7 @@ export class RelationshipEngine {
 
     const prevType = existing.type;
     existing.score = Math.max(-1, Math.min(1, existing.score + scoreChange));
-    existing.type = resolveType(existing.score, a.job, b.job, a.traits.sociability, b.traits.sociability);
+    existing.type = resolveType(existing.score, a.job, b.job, a.traits.sociability, b.traits.sociability, a.age, b.age);
     existing.lastUpdated = tick;
     existing.dirty = true;
 

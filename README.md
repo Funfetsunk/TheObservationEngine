@@ -1,6 +1,6 @@
 # The Observation Engine
 
-A persistent, autonomous city simulation. Wixbury runs 24/7 with no player interaction. Visitors observe via a read-only website — citizens make decisions, form relationships, age, and die through emergent behaviour.
+A persistent, autonomous city simulation. Wixbury runs 24/7 with no player interaction. Visitors observe via a read-only website. Citizens make decisions, form relationships, age, and die through emergent behaviour.
 
 ---
 

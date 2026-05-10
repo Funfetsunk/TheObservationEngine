@@ -30,15 +30,19 @@ export function CitizenDots({ citizens, selectedId, onSelect }: CitizenDotsProps
           <g
             key={c.id}
             onClick={() => onSelect?.(c.id)}
-            style={{ cursor: onSelect ? 'pointer' : 'default' }}
+            style={{
+              transform: `translate(${x}px, ${y}px)`,
+              transition: 'transform 2s ease-in-out',
+              cursor: onSelect ? 'pointer' : 'default',
+            }}
             aria-label={`${c.name} — ${c.activity}`}
           >
             {selected && (
-              <circle cx={x} cy={y} r={8} fill="none" stroke="white" strokeWidth={1.5} opacity={0.7} />
+              <circle cx={0} cy={0} r={8} fill="none" stroke="white" strokeWidth={1.5} opacity={0.7} />
             )}
             <circle
-              cx={x}
-              cy={y}
+              cx={0}
+              cy={0}
               r={selected ? 5 : 4}
               fill={colour}
               opacity={selected ? 1 : 0.85}
